@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useLocale } from '@/lib/i18n/locale'
 
 interface AuditTabProps {
   orgId: string
@@ -9,6 +10,7 @@ interface AuditTabProps {
 }
 
 export default function AuditTab({ orgId, refreshTrigger }: AuditTabProps) {
+  const { t, locale } = useLocale()
   const [logs, setLogs] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -38,6 +40,8 @@ export default function AuditTab({ orgId, refreshTrigger }: AuditTabProps) {
     switch (action?.toLowerCase()) {
       case 'create':
       case 'created':
+      case 'confirm':
+      case 'confirmed':
         return 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
       case 'update':
       case 'updated':
@@ -53,14 +57,14 @@ export default function AuditTab({ orgId, refreshTrigger }: AuditTabProps) {
   }
 
   if (loading) {
-    return <div className="text-[var(--text-muted)] text-sm animate-pulse">Loading audit logs...</div>
+    return <div className="text-[var(--text-muted)] text-sm animate-pulse p-4 text-center">{t('audit.loading')}</div>
   }
 
   if (logs.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-48 text-[var(--text-muted)]">
         <span className="text-4xl mb-3">🛡️</span>
-        <p>No audit logs available yet.</p>
+        <p className="text-sm">{t('audit.noLogs')}</p>
       </div>
     )
   }
@@ -68,26 +72,25 @@ export default function AuditTab({ orgId, refreshTrigger }: AuditTabProps) {
   return (
     <div className="flex flex-col h-full space-y-3">
       {logs.map((log) => (
-        <div key={log.id} className="glass rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-3">
-              <span className={`text-xs font-semibold px-2 py-1 rounded border ${getBadgeColor(log.action)}`}>
-                {log.action?.toUpperCase() || 'UNKNOWN'}
+        <div key={log.id} className="glass rounded-lg p-3 sm:p-4">
+          <div className="flex items-center justify-between mb-2 gap-2">
+            <div className="flex items-center gap-2">
+              <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border uppercase ${getBadgeColor(log.action)}`}>
+                {log.action || 'ACTION'}
               </span>
-              <span className="text-sm font-medium text-[var(--text-primary)]">
+              <span className="text-xs sm:text-sm font-medium text-[var(--text-primary)] truncate">
                 {log.table_name}
               </span>
             </div>
-            <span className="text-xs text-[var(--text-muted)]">
-              {new Date(log.created_at).toLocaleString()}
+            <span className="text-[10px] sm:text-xs text-[var(--text-muted)] shrink-0">
+              {new Date(log.created_at).toLocaleString(locale === 'ar' ? 'ar-AE' : 'en-AE')}
             </span>
           </div>
           
           <div className="flex justify-between items-end mt-2">
             <span className="text-xs text-[var(--text-secondary)]">
-              User: <span className="text-[var(--text-primary)]">{log.user_id || 'System'}</span>
+              {t('audit.user')}: <span className="text-[var(--text-primary)] font-mono text-[10px]">{log.user_id ? `${log.user_id.slice(0, 8)}...` : t('audit.system')}</span>
             </span>
-            <button className="text-xs text-emerald-400 hover:underline">View details</button>
           </div>
         </div>
       ))}

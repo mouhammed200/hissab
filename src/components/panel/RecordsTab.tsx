@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { useLocale } from '@/lib/i18n/locale'
 
 interface RecordsTabProps {
   orgId: string
@@ -13,6 +14,7 @@ const formatCurrency = (amount: number) => {
 }
 
 export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
+  const { t, locale } = useLocale()
   const [records, setRecords] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [filterType, setFilterType] = useState('All')
@@ -28,7 +30,6 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
         const { data: invoices } = await supabase.from('invoices').select('*').eq('org_id', orgId)
         const { data: employees } = await supabase.from('employees').select('*').eq('org_id', orgId)
         
-        // Transform data into a unified structure
         const unified = []
         
         if (invoices) {
@@ -37,8 +38,8 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
               id: inv.id,
               type: inv.type === 'SALE' ? 'Sale' : 'Purchase',
               icon: inv.type === 'SALE' ? '📈' : '🛒',
-              title: inv.party_name || 'Unknown Party',
-              subtitle: `${inv.status} • ${new Date(inv.date || inv.created_at).toLocaleDateString()}`,
+              title: inv.party_name || (locale === 'ar' ? 'طرف غير معروف' : 'Unknown Party'),
+              subtitle: `${inv.status} • ${new Date(inv.date || inv.created_at).toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-AE')}`,
               amount: Number(inv.total_amount) || 0,
               color: inv.type === 'SALE' ? 'text-emerald-400' : 'text-amber-400',
               rawDate: new Date(inv.date || inv.created_at)
@@ -52,8 +53,8 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
               id: emp.id,
               type: 'Employee',
               icon: '👤',
-              title: `${emp.first_name} ${emp.last_name}`,
-              subtitle: `${emp.department || 'N/A'} • Joined ${new Date(emp.join_date || emp.created_at).toLocaleDateString()}`,
+              title: `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || (locale === 'ar' ? 'موظف' : 'Employee'),
+              subtitle: `${emp.department || 'General'} • ${new Date(emp.join_date || emp.created_at).toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-AE')}`,
               amount: Number(emp.base_salary) || 0,
               color: 'text-blue-400',
               rawDate: new Date(emp.created_at)
@@ -71,7 +72,7 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
     }
     
     fetchRecords()
-  }, [orgId, refreshTrigger])
+  }, [orgId, refreshTrigger, locale])
 
   const now = new Date()
   const filteredRecords = records.filter(r => {
@@ -94,57 +95,57 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
   return (
     <div className="flex flex-col h-full space-y-4">
       {/* Filter Bar */}
-      <div className="flex gap-3">
+      <div className="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3">
         <select 
-          className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-emerald-500 transition-colors"
+          className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs sm:text-sm text-[var(--text-primary)] outline-none focus:border-emerald-500 transition-colors"
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
         >
-          <option value="All">All Types</option>
-          <option value="Sale">Sales</option>
-          <option value="Purchase">Purchases</option>
-          <option value="Employee">Employees</option>
+          <option value="All">{t('records.allTypes')}</option>
+          <option value="Sale">{t('records.sales')}</option>
+          <option value="Purchase">{t('records.purchases')}</option>
+          <option value="Employee">{t('records.employees')}</option>
         </select>
         
         <select
-          className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-emerald-500 transition-colors"
+          className="bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-lg px-2.5 py-1.5 text-xs sm:text-sm text-[var(--text-primary)] outline-none focus:border-emerald-500 transition-colors"
           value={filterPeriod}
           onChange={(e) => setFilterPeriod(e.target.value)}
         >
-          <option value="all">All Time</option>
-          <option value="month">This Month</option>
-          <option value="quarter">This Quarter</option>
-          <option value="year">This Year</option>
+          <option value="all">{t('records.allTime')}</option>
+          <option value="month">{t('records.thisMonth')}</option>
+          <option value="quarter">{t('records.thisQuarter')}</option>
+          <option value="year">{t('records.thisYear')}</option>
         </select>
 
         <input 
           type="text" 
-          placeholder="Search records..." 
-          className="flex-1 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-lg px-3 py-2 text-sm text-[var(--text-primary)] outline-none focus:border-emerald-500 transition-colors"
+          placeholder={t('records.search')}
+          className="flex-1 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded-lg px-3 py-1.5 text-xs sm:text-sm text-[var(--text-primary)] outline-none focus:border-emerald-500 transition-colors min-w-[120px]"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
         />
       </div>
 
       {/* Records List */}
-      <div className="flex-1 overflow-y-auto space-y-2 pr-2">
+      <div className="flex-1 overflow-y-auto space-y-2 pr-1">
         {loading ? (
-          <div className="text-[var(--text-muted)] text-sm p-4">Loading records...</div>
+          <div className="text-[var(--text-muted)] text-sm p-4 text-center">{t('records.loading')}</div>
         ) : filteredRecords.length > 0 ? (
           filteredRecords.map((record) => (
-            <div key={record.id} className="glass-hover rounded-lg p-4 flex items-center gap-4 cursor-pointer transition-all">
-              <span className="text-xl">{record.icon}</span>
-              <div className="flex-1">
-                <p className="text-sm font-medium text-[var(--text-primary)]">{record.title}</p>
-                <p className="text-xs text-[var(--text-muted)]">{record.subtitle}</p>
+            <div key={record.id} className="glass-hover rounded-lg p-3 sm:p-4 flex items-center gap-3 sm:gap-4 cursor-pointer transition-all">
+              <span className="text-lg sm:text-xl">{record.icon}</span>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs sm:text-sm font-medium text-[var(--text-primary)] truncate">{record.title}</p>
+                <p className="text-[10px] sm:text-xs text-[var(--text-muted)] truncate">{record.subtitle}</p>
               </div>
-              <p className={`text-sm font-semibold ${record.color}`}>{formatCurrency(record.amount)}</p>
+              <p className={`text-xs sm:text-sm font-semibold shrink-0 ${record.color}`}>{formatCurrency(record.amount)}</p>
             </div>
           ))
         ) : (
           <div className="flex flex-col items-center justify-center h-48 text-[var(--text-muted)]">
             <span className="text-4xl mb-3">📭</span>
-            <p>No records found.</p>
+            <p className="text-sm">{t('records.noRecords')}</p>
           </div>
         )}
       </div>

@@ -11,7 +11,7 @@ const Panel = dynamic(() => import('@/components/panel/Panel'), { ssr: false })
 
 function AppContent({ userId }: { userId: string }) {
   const { org, loading, error } = useOrg()
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   const [refreshTrigger, setRefreshTrigger] = useState(0)
   const [showPanel, setShowPanel] = useState(true)
 
@@ -23,7 +23,7 @@ function AppContent({ userId }: { userId: string }) {
     return (
       <div className="h-screen flex items-center justify-center bg-[--bg-primary]">
         <div className="text-center animate-fade-in">
-          <div className="text-5xl mb-4">حساب</div>
+          <div className="text-5xl mb-4 font-bold text-emerald-400">{locale === 'ar' ? 'حساب' : 'Hissab'}</div>
           <div className="flex items-center gap-2 justify-center">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '0ms' }} />
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -55,41 +55,32 @@ function AppContent({ userId }: { userId: string }) {
   return (
     <div className="h-screen flex overflow-hidden bg-[--bg-primary]">
       {/* Chat Pane */}
-      <div className={`flex-1 min-w-0 flex flex-col transition-all duration-300 ${showPanel ? 'lg:max-w-[60%]' : ''}`}>
+      <div className={`flex-1 min-w-0 flex flex-col transition-all duration-300 ${showPanel ? 'lg:max-w-[55%] xl:max-w-[60%]' : 'w-full'}`}>
         <ChatPane
           orgId={org.id}
           userId={userId}
           onRecordConfirmed={handleRecordConfirmed}
+          onTogglePanel={() => setShowPanel(!showPanel)}
+          showPanel={showPanel}
         />
       </div>
 
-      {/* Panel Toggle (mobile) */}
-      <button
-        onClick={() => setShowPanel(p => !p)}
-        className="lg:hidden fixed bottom-20 right-4 z-50 w-12 h-12 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-lg shadow-emerald-900/30 hover:bg-emerald-500 transition-colors"
-        aria-label="Toggle panel"
-      >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          {showPanel ? (
-            <path d="M18 6L6 18M6 6l12 12" />
-          ) : (
-            <>
-              <path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />
-            </>
-          )}
-        </svg>
-      </button>
-
       {/* Panel */}
-      <div className={`
-        fixed lg:relative inset-y-0 right-0 z-40
-        w-full lg:w-[40%] lg:min-w-[400px] lg:max-w-[550px]
-        transform transition-transform duration-300 ease-in-out
-        ${showPanel ? 'translate-x-0' : 'translate-x-full lg:translate-x-0 lg:hidden'}
-        border-l border-[--border-subtle]
-      `}>
-        <Panel orgId={org.id} refreshTrigger={refreshTrigger} onRealtimeRefresh={handleRecordConfirmed} />
-      </div>
+      {showPanel && (
+        <div className={`
+          fixed lg:relative inset-y-0 right-0 z-40
+          w-full lg:w-[45%] xl:w-[40%] lg:min-w-[400px] lg:max-w-[600px]
+          transform transition-transform duration-300 ease-in-out
+          border-l border-[--border-subtle] bg-[--bg-primary] shadow-2xl lg:shadow-none
+        `}>
+          <Panel 
+            orgId={org.id} 
+            refreshTrigger={refreshTrigger} 
+            onRealtimeRefresh={handleRecordConfirmed} 
+            onClosePanel={() => setShowPanel(false)}
+          />
+        </div>
+      )}
     </div>
   )
 }
