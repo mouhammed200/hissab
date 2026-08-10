@@ -1,0 +1,158 @@
+{
+  "app": {
+    "name": "حساب",
+    "tagline": "محاسبة مدعومة بالذكاء الاصطناعي للأعمال في الإمارات"
+  },
+  "chat": {
+    "welcome": "مرحباً بك في حساب",
+    "welcomeSubtitle": "ابدأ بكتابة معاملة، أو التقاط صورة، أو طرح سؤال.",
+    "placeholder": "اكتب معاملة، اطرح سؤالاً، أو التقط صورة إيصال...",
+    "send": "إرسال",
+    "recording": "جارٍ التسجيل...",
+    "stopRecording": "إيقاف التسجيل",
+    "startRecording": "إدخال صوتي",
+    "uploadFile": "رفع ملف",
+    "takePhoto": "التقاط صورة",
+    "suggestions": {
+      "sale": "\"بعت 5 حاسبات لشركة أكمي بـ 15,000 درهم\"",
+      "expense": "\"سجّل فاتورة كهرباء بقيمة 450 درهم من ديوا\"",
+      "query": "\"ما هو إجمالي التزامي بضريبة القيمة المضافة هذا الشهر؟\""
+    }
+  },
+  "record": {
+    "confirm": "تأكيد",
+    "edit": "تعديل",
+    "void": "إلغاء",
+    "save": "حفظ",
+    "cancel": "إلغاء",
+    "confirmed": "مؤكد",
+    "voided": "ملغى",
+    "pending": "قيد الانتظار",
+    "subtotal": "المجموع الفرعي",
+    "discount": "الخصم",
+    "vat": "ضريبة القيمة المضافة (5%)",
+    "total": "الإجمالي",
+    "party": "الطرف",
+    "date": "التاريخ",
+    "description": "الوصف",
+    "quantity": "الكمية",
+    "unitPrice": "سعر الوحدة",
+    "lineTotal": "إجمالي السطر",
+    "category": "الفئة",
+    "reverseCharge": "الاحتساب العكسي",
+    "invoiceNumber": "رقم الفاتورة",
+    "types": {
+      "sale": "بيع",
+      "purchase": "شراء",
+      "employee": "موظف",
+      "asset": "أصل ثابت",
+      "related_party": "طرف ذو صلة"
+    }
+  },
+  "panel": {
+    "dashboard": "لوحة التحكم",
+    "records": "السجلات",
+    "reports": "التقارير",
+    "audit": "سجل المراجعة",
+    "settings": "الإعدادات"
+  },
+  "dashboard": {
+    "totalRevenue": "إجمالي الإيرادات",
+    "totalExpenses": "إجمالي المصروفات",
+    "netProfit": "صافي الربح",
+    "vatDue": "ضريبة القيمة المضافة المستحقة",
+    "employees": "الموظفون",
+    "outstandingInvoices": "الفواتير المعلقة",
+    "fixedAssets": "الأصول الثابتة",
+    "vatDeadline": "موعد تقديم ضريبة القيمة المضافة",
+    "monthlyTrend": "الاتجاه خلال 6 أشهر",
+    "vsLastMonth": "مقارنة بالشهر الماضي",
+    "currentPeriod": "الفترة الحالية"
+  },
+  "records": {
+    "allTypes": "جميع الأنواع",
+    "sales": "المبيعات",
+    "purchases": "المشتريات",
+    "employees": "الموظفون",
+    "allTime": "كل الوقت",
+    "thisMonth": "هذا الشهر",
+    "thisQuarter": "هذا الربع",
+    "thisYear": "هذه السنة",
+    "search": "بحث في السجلات...",
+    "noRecords": "لا توجد سجلات.",
+    "loading": "جارٍ تحميل السجلات..."
+  },
+  "reports": {
+    "exportAll": "تصدير الكل إلى Excel",
+    "trialBalance": "ميزان المراجعة",
+    "profitLoss": "قائمة الأرباح والخسائر",
+    "balanceSheet": "الميزانية العمومية",
+    "vatReturn": "إقرار ضريبة القيمة المضافة (الفترة الحالية)",
+    "agedReceivables": "الذمم المدينة المتقادمة",
+    "agedPayables": "الذمم الدائنة المتقادمة",
+    "bankReconciliation": "مطابقة البنك",
+    "uploadCsv": "رفع كشف حساب CSV",
+    "uploadCsvHint": "ارفع كشف حساب بنكي بصيغة CSV لمطابقته مع القيود الدفترية.",
+    "noData": "لا توجد بيانات لهذه الفترة.",
+    "loading": "جارٍ التحميل...",
+    "importSuccess": "اكتمل استيراد البنك: {{count}} معاملة.",
+    "importFailed": "فشل استيراد البنك"
+  },
+  "audit": {
+    "loading": "جارٍ تحميل سجلات المراجعة...",
+    "noLogs": "لا توجد سجلات مراجعة بعد.",
+    "viewDetails": "عرض التفاصيل",
+    "user": "المستخدم",
+    "system": "النظام"
+  },
+  "settings": {
+    "title": "الإعدادات",
+    "companyName": "اسم الشركة",
+    "companyNamePlaceholder": "اسم شركتك",
+    "legalName": "الاسم القانوني",
+    "legalNamePlaceholder": "الاسم القانوني المسجل",
+    "trn": "الرقم الضريبي (TRN)",
+    "trnPlaceholder": "100000000000003",
+    "defaultEmirate": "الإمارة الافتراضية",
+    "freeZone": "شركة منطقة حرة",
+    "language": "اللغة",
+    "save": "حفظ التغييرات",
+    "saving": "جارٍ الحفظ...",
+    "saved": "تم حفظ الإعدادات!",
+    "cancel": "إلغاء",
+    "signOut": "تسجيل الخروج",
+    "error": "خطأ"
+  },
+  "auth": {
+    "login": "تسجيل الدخول",
+    "signup": "إنشاء حساب",
+    "email": "البريد الإلكتروني",
+    "password": "كلمة المرور",
+    "fullName": "الاسم الكامل",
+    "companyName": "اسم الشركة",
+    "signingIn": "جارٍ تسجيل الدخول...",
+    "creatingAccount": "جارٍ إنشاء الحساب...",
+    "noAccount": "ليس لديك حساب؟",
+    "hasAccount": "لديك حساب بالفعل؟",
+    "signUpLink": "إنشاء حساب",
+    "signInLink": "تسجيل الدخول",
+    "emailPlaceholder": "you@company.com",
+    "passwordPlaceholder": "كلمة مرورك",
+    "namePlaceholder": "اسمك الكامل",
+    "companyPlaceholder": "اسم شركتك"
+  },
+  "common": {
+    "loading": "جارٍ التحميل...",
+    "error": "حدث خطأ ما",
+    "tryAgain": "حاول مجدداً",
+    "loadingWorkspace": "جارٍ تحميل مساحة العمل...",
+    "aed": "درهم",
+    "currency": "AED"
+  },
+  "errors": {
+    "confirmFailed": "فشل تأكيد السجل. يرجى المحاولة مجدداً.",
+    "voidFailed": "فشل إلغاء السجل. يرجى المحاولة مجدداً.",
+    "exportFailed": "فشل التصدير",
+    "loadFailed": "فشل تحميل البيانات"
+  }
+}

@@ -1,0 +1,158 @@
+{
+  "app": {
+    "name": "Hissab",
+    "tagline": "AI-powered accounting for UAE businesses"
+  },
+  "chat": {
+    "welcome": "Welcome to Hissab",
+    "welcomeSubtitle": "Start by typing a transaction, taking a photo, or asking a question.",
+    "placeholder": "Type a transaction, ask a question, or snap a receipt...",
+    "send": "Send",
+    "recording": "Recording...",
+    "stopRecording": "Stop recording",
+    "startRecording": "Start voice input",
+    "uploadFile": "Upload file",
+    "takePhoto": "Take photo",
+    "suggestions": {
+      "sale": "\"Sold 5 laptops to Acme Corp for 15,000 AED\"",
+      "expense": "\"Record electricity bill of 450 AED from DEWA\"",
+      "query": "\"What is my total VAT liability this month?\""
+    }
+  },
+  "record": {
+    "confirm": "Confirm",
+    "edit": "Edit",
+    "void": "Void",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirmed": "Confirmed",
+    "voided": "Voided",
+    "pending": "Pending",
+    "subtotal": "Subtotal",
+    "discount": "Discount",
+    "vat": "VAT (5%)",
+    "total": "Total",
+    "party": "Party",
+    "date": "Date",
+    "description": "Description",
+    "quantity": "Qty",
+    "unitPrice": "Unit Price",
+    "lineTotal": "Line Total",
+    "category": "Category",
+    "reverseCharge": "Reverse Charge",
+    "invoiceNumber": "Invoice #",
+    "types": {
+      "sale": "Sale",
+      "purchase": "Purchase",
+      "employee": "Employee",
+      "asset": "Fixed Asset",
+      "related_party": "Related Party"
+    }
+  },
+  "panel": {
+    "dashboard": "Dashboard",
+    "records": "Records",
+    "reports": "Reports",
+    "audit": "Audit",
+    "settings": "Settings"
+  },
+  "dashboard": {
+    "totalRevenue": "Total Revenue",
+    "totalExpenses": "Total Expenses",
+    "netProfit": "Net Profit",
+    "vatDue": "VAT Due",
+    "employees": "Employees",
+    "outstandingInvoices": "Outstanding Invoices",
+    "fixedAssets": "Fixed Assets",
+    "vatDeadline": "VAT Deadline",
+    "monthlyTrend": "6-Month Trend",
+    "vsLastMonth": "vs last month",
+    "currentPeriod": "current period"
+  },
+  "records": {
+    "allTypes": "All Types",
+    "sales": "Sales",
+    "purchases": "Purchases",
+    "employees": "Employees",
+    "allTime": "All Time",
+    "thisMonth": "This Month",
+    "thisQuarter": "This Quarter",
+    "thisYear": "This Year",
+    "search": "Search records...",
+    "noRecords": "No records found.",
+    "loading": "Loading records..."
+  },
+  "reports": {
+    "exportAll": "Export All to Excel",
+    "trialBalance": "Trial Balance",
+    "profitLoss": "Profit & Loss",
+    "balanceSheet": "Balance Sheet",
+    "vatReturn": "VAT Return (Current Period)",
+    "agedReceivables": "Aged Receivables",
+    "agedPayables": "Aged Payables",
+    "bankReconciliation": "Bank Reconciliation",
+    "uploadCsv": "Upload CSV Statement",
+    "uploadCsvHint": "Upload a CSV bank statement to reconcile with book entries.",
+    "noData": "No data for this period.",
+    "loading": "Loading...",
+    "importSuccess": "Bank import complete: {{count}} transactions imported.",
+    "importFailed": "Bank import failed"
+  },
+  "audit": {
+    "loading": "Loading audit logs...",
+    "noLogs": "No audit logs available yet.",
+    "viewDetails": "View details",
+    "user": "User",
+    "system": "System"
+  },
+  "settings": {
+    "title": "Settings",
+    "companyName": "Company Name",
+    "companyNamePlaceholder": "Your company name",
+    "legalName": "Legal Name",
+    "legalNamePlaceholder": "Registered legal name",
+    "trn": "TRN (Tax Registration Number)",
+    "trnPlaceholder": "100000000000003",
+    "defaultEmirate": "Default Emirate",
+    "freeZone": "Free Zone Company",
+    "language": "Language",
+    "save": "Save Changes",
+    "saving": "Saving...",
+    "saved": "Settings saved!",
+    "cancel": "Cancel",
+    "signOut": "Sign Out",
+    "error": "Error"
+  },
+  "auth": {
+    "login": "Sign In",
+    "signup": "Create Account",
+    "email": "Email",
+    "password": "Password",
+    "fullName": "Full Name",
+    "companyName": "Company Name",
+    "signingIn": "Signing in...",
+    "creatingAccount": "Creating account...",
+    "noAccount": "Don't have an account?",
+    "hasAccount": "Already have an account?",
+    "signUpLink": "Sign up",
+    "signInLink": "Sign in",
+    "emailPlaceholder": "you@company.com",
+    "passwordPlaceholder": "Your password",
+    "namePlaceholder": "Your full name",
+    "companyPlaceholder": "Your company name"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "tryAgain": "Try Again",
+    "loadingWorkspace": "Loading your workspace...",
+    "aed": "AED",
+    "currency": "AED"
+  },
+  "errors": {
+    "confirmFailed": "Failed to confirm record. Please try again.",
+    "voidFailed": "Failed to void record. Please try again.",
+    "exportFailed": "Export failed",
+    "loadFailed": "Failed to load data"
+  }
+}
