@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import Link from 'next/link'
 
 export default function LoginPage() {
   const [email, setEmail] = useState('')
@@ -39,6 +38,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold text-white mb-1" style={{ fontFamily: 'sans-serif' }}>حساب</h1>
           <p className="text-xl tracking-[0.2em] uppercase text-emerald-400 font-light">Hissab</p>
+          <p className="text-xs text-[var(--text-muted)] mt-2">Sign in to your UAE Accounting Workspace</p>
         </div>
 
         {error && (
@@ -87,11 +87,8 @@ export default function LoginPage() {
           </button>
         </form>
 
-        <p className="mt-8 text-center text-sm text-gray-400">
-          Don't have an account?{' '}
-          <Link href="/signup" className="text-emerald-400 hover:text-emerald-300 transition-colors">
-            Create one
-          </Link>
+        <p className="mt-8 text-center text-xs text-[var(--text-muted)]">
+          Accounts are managed by your administrator. Contact support if you need assistance.
         </p>
       </div>
     </div>
