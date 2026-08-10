@@ -43,12 +43,13 @@ export async function POST(req: Request) {
       const isSale = record.type === 'sale'
       
       // 1. Find or create contact
+      const resolvedPartyName = record.party || record.partyName || record.contactName || record.name || 'General Contact'
       let contactId: string
       const { data: existingContact } = await supabase
         .from('contacts')
         .select('id')
         .eq('org_id', orgId)
-        .eq('name', record.contactName || 'Unknown')
+        .eq('name', resolvedPartyName)
         .single()
         
       if (existingContact) {
@@ -56,7 +57,7 @@ export async function POST(req: Request) {
       } else {
         const { data: newContact, error: contactError } = await supabase
           .from('contacts')
-          .insert({ org_id: orgId, name: record.contactName || 'Unknown', type: isSale ? 'customer' : 'vendor' })
+          .insert({ org_id: orgId, name: resolvedPartyName, type: isSale ? 'customer' : 'vendor' })
           .select('id')
           .single()
           
