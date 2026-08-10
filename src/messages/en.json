@@ -1,16 +1,16 @@
 {
   "app": {
     "name": "Hissab",
-    "tagline": "AI-powered accounting for UAE businesses"
+    "tagline": "AI-Powered Accounting for UAE Businesses"
   },
   "chat": {
     "welcome": "Welcome to Hissab",
-    "welcomeSubtitle": "Start by typing a transaction, taking a photo, or asking a question.",
-    "placeholder": "Type a transaction, ask a question, or snap a receipt...",
+    "welcomeSubtitle": "Start by typing a transaction, snapping a receipt photo, or asking a question.",
+    "placeholder": "Type a transaction or ask a question...",
     "send": "Send",
     "recording": "Recording...",
     "stopRecording": "Stop recording",
-    "startRecording": "Start voice input",
+    "startRecording": "Voice input",
     "uploadFile": "Upload file",
     "takePhoto": "Take photo",
     "suggestions": {
@@ -35,7 +35,7 @@
     "party": "Party",
     "date": "Date",
     "description": "Description",
-    "quantity": "Qty",
+    "quantity": "Quantity",
     "unitPrice": "Unit Price",
     "lineTotal": "Line Total",
     "category": "Category",
@@ -53,8 +53,12 @@
     "dashboard": "Dashboard",
     "records": "Records",
     "reports": "Reports",
-    "audit": "Audit",
-    "settings": "Settings"
+    "audit": "Audit Log",
+    "settings": "Settings",
+    "hidePanel": "Hide Panel",
+    "showPanel": "Show Panel",
+    "fullScreenPanel": "Maximize Panel",
+    "splitScreen": "Split Screen"
   },
   "dashboard": {
     "totalRevenue": "Total Revenue",
@@ -62,12 +66,12 @@
     "netProfit": "Net Profit",
     "vatDue": "VAT Due",
     "employees": "Employees",
-    "outstandingInvoices": "Outstanding Invoices",
+    "outstandingInvoices": "Draft Invoices",
     "fixedAssets": "Fixed Assets",
-    "vatDeadline": "VAT Deadline",
-    "monthlyTrend": "6-Month Trend",
-    "vsLastMonth": "vs last month",
-    "currentPeriod": "current period"
+    "vatDeadline": "VAT Filing Deadline",
+    "monthlyTrend": "Financial Chart for Selected Period",
+    "vsLastMonth": "For selected period",
+    "currentPeriod": "Current Period"
   },
   "records": {
     "allTypes": "All Types",
@@ -87,72 +91,62 @@
     "trialBalance": "Trial Balance",
     "profitLoss": "Profit & Loss",
     "balanceSheet": "Balance Sheet",
-    "vatReturn": "VAT Return (Current Period)",
+    "vatReturn": "VAT Return 201",
     "agedReceivables": "Aged Receivables",
     "agedPayables": "Aged Payables",
     "bankReconciliation": "Bank Reconciliation",
     "uploadCsv": "Upload CSV Statement",
-    "uploadCsvHint": "Upload a CSV bank statement to reconcile with book entries.",
+    "uploadCsvHint": "Upload a bank CSV statement to match with book entries.",
     "noData": "No data for this period.",
     "loading": "Loading...",
-    "importSuccess": "Bank import complete: {{count}} transactions imported.",
+    "importSuccess": "Bank import complete: {{count}} transactions.",
     "importFailed": "Bank import failed"
   },
   "audit": {
     "loading": "Loading audit logs...",
     "noLogs": "No audit logs available yet.",
-    "viewDetails": "View details",
+    "viewDetails": "View Details",
     "user": "User",
     "system": "System"
   },
   "settings": {
     "title": "Settings",
+    "subtitle": "Manage your user profile & company tax details",
+    "userProfile": "User Profile",
+    "companyAndTax": "Company & Tax Settings",
+    "emailReadOnly": "Email Address (Read-only)",
+    "fullName": "Your Full Name",
     "companyName": "Company Name",
     "companyNamePlaceholder": "Your company name",
     "legalName": "Legal Name",
-    "legalNamePlaceholder": "Registered legal name",
-    "trn": "TRN (Tax Registration Number)",
+    "legalNamePlaceholder": "Registered legal entity name",
+    "trn": "Tax Registration Number (TRN)",
     "trnPlaceholder": "100000000000003",
     "defaultEmirate": "Default Emirate",
     "freeZone": "Free Zone Company",
     "language": "Language",
     "save": "Save Changes",
     "saving": "Saving...",
-    "saved": "Settings saved!",
+    "saved": "Settings saved successfully!",
     "cancel": "Cancel",
     "signOut": "Sign Out",
-    "error": "Error"
-  },
-  "auth": {
-    "login": "Sign In",
-    "signup": "Create Account",
-    "email": "Email",
-    "password": "Password",
-    "fullName": "Full Name",
-    "companyName": "Company Name",
-    "signingIn": "Signing in...",
-    "creatingAccount": "Creating account...",
-    "noAccount": "Don't have an account?",
-    "hasAccount": "Already have an account?",
-    "signUpLink": "Sign up",
-    "signInLink": "Sign in",
-    "emailPlaceholder": "you@company.com",
-    "passwordPlaceholder": "Your password",
-    "namePlaceholder": "Your full name",
-    "companyPlaceholder": "Your company name"
+    "error": "Error",
+    "emirates": {
+      "Abu Dhabi": "Abu Dhabi",
+      "Dubai": "Dubai",
+      "Sharjah": "Sharjah",
+      "Ajman": "Ajman",
+      "Umm Al Quwain": "Umm Al Quwain",
+      "Ras Al Khaimah": "Ras Al Khaimah",
+      "Fujairah": "Fujairah"
+    }
   },
   "common": {
     "loading": "Loading...",
     "error": "Something went wrong",
     "tryAgain": "Try Again",
-    "loadingWorkspace": "Loading your workspace...",
+    "loadingWorkspace": "Loading workspace...",
     "aed": "AED",
     "currency": "AED"
-  },
-  "errors": {
-    "confirmFailed": "Failed to confirm record. Please try again.",
-    "voidFailed": "Failed to void record. Please try again.",
-    "exportFailed": "Export failed",
-    "loadFailed": "Failed to load data"
   }
 }

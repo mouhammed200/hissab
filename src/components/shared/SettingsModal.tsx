@@ -108,7 +108,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
         <div className="flex items-center justify-between mb-6 border-b border-white/10 pb-4">
           <div>
             <h2 className="text-lg font-semibold text-[--text-primary]">{t('settings.title')}</h2>
-            <p className="text-xs text-[--text-muted]">Manage your user profile & company tax details</p>
+            <p className="text-xs text-[--text-muted]">{t('settings.subtitle')}</p>
           </div>
           <button onClick={onClose} className="text-[--text-muted] hover:text-[--text-primary] transition-colors">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 6L6 18M6 6l12 12" /></svg>
@@ -118,33 +118,33 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
         <div className="space-y-4">
           {/* User Profile Section */}
           <div className="bg-white/5 p-4 rounded-xl space-y-3 border border-white/5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-400">User Profile</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-400">{t('settings.userProfile')}</h3>
             <div>
-              <label className="block text-xs text-[--text-muted] mb-1">Email Address (Read-only)</label>
-              <input type="email" value={userEmail} disabled className="opacity-60 cursor-not-allowed text-xs" />
+              <label className="block text-xs text-[--text-muted] mb-1">{t('settings.emailReadOnly')}</label>
+              <input type="email" value={userEmail} disabled className="opacity-60 cursor-not-allowed text-xs w-full" />
             </div>
             <div>
-              <label className="block text-xs text-[--text-muted] mb-1">Your Full Name</label>
-              <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="e.g. Mouhammed" className="text-xs" />
+              <label className="block text-xs text-[--text-muted] mb-1">{t('settings.fullName')}</label>
+              <input type="text" value={fullName} onChange={e => setFullName(e.target.value)} placeholder="e.g. Mouhammed" className="text-xs w-full" />
             </div>
           </div>
 
           {/* Company Details Section */}
           <div className="bg-white/5 p-4 rounded-xl space-y-3 border border-white/5">
-            <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-400">Company & Tax Settings</h3>
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-400">{t('settings.companyAndTax')}</h3>
             <div>
               <label className="block text-xs text-[--text-muted] mb-1">{t('settings.companyName')}</label>
-              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.companyNamePlaceholder')} className="text-xs" />
+              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.companyNamePlaceholder')} className="text-xs w-full" />
             </div>
 
             <div>
               <label className="block text-xs text-[--text-muted] mb-1">{t('settings.legalName')}</label>
-              <input type="text" value={legalName} onChange={e => setLegalName(e.target.value)} placeholder={t('settings.legalNamePlaceholder')} className="text-xs" />
+              <input type="text" value={legalName} onChange={e => setLegalName(e.target.value)} placeholder={t('settings.legalNamePlaceholder')} className="text-xs w-full" />
             </div>
 
             <div>
               <label className="block text-xs text-[--text-muted] mb-1">{t('settings.trn')}</label>
-              <input type="text" value={trn} onChange={e => setTrn(e.target.value)} placeholder={t('settings.trnPlaceholder')} maxLength={15} className="text-xs font-mono" />
+              <input type="text" value={trn} onChange={e => setTrn(e.target.value)} placeholder={t('settings.trnPlaceholder')} maxLength={15} className="text-xs font-mono w-full" />
             </div>
 
             <div>
@@ -152,16 +152,28 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               <select
                 value={emirate}
                 onChange={e => setEmirate(e.target.value as Emirate)}
-                className="w-full bg-white/5 border border-white/10 text-[--text-primary] rounded-xl px-3 py-2 text-xs outline-none focus:border-[--accent] transition-colors"
+                className="w-full bg-[var(--bg-secondary)] border border-white/10 text-[--text-primary] rounded-xl px-3 py-2 text-xs outline-none focus:border-[--accent] transition-colors"
               >
-                {EMIRATES.map(e => <option key={e} value={e} className="bg-[--bg-secondary]">{e}</option>)}
+                {EMIRATES.map(e => (
+                  <option key={e} value={e} className="bg-[--bg-secondary]">
+                    {t(`settings.emirates.${e}`) || e}
+                  </option>
+                ))}
               </select>
             </div>
 
             <label className="flex items-center gap-3 cursor-pointer group pt-1">
-              <div className={`w-9 h-5 rounded-full transition-colors relative ${isFreeZone ? 'bg-emerald-600' : 'bg-white/10'}`}
-                onClick={() => setIsFreeZone(!isFreeZone)}>
-                <div className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${isFreeZone ? 'translate-x-4' : 'translate-x-0.5'}`} />
+              <div 
+                className={`w-9 h-5 rounded-full transition-colors relative ${isFreeZone ? 'bg-emerald-600' : 'bg-white/10'}`}
+                onClick={() => setIsFreeZone(!isFreeZone)}
+              >
+                <div 
+                  className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                    locale === 'ar'
+                      ? (isFreeZone ? '-translate-x-4' : '-translate-x-0.5')
+                      : (isFreeZone ? 'translate-x-4' : 'translate-x-0.5')
+                  }`} 
+                />
               </div>
               <span className="text-xs text-[--text-secondary] group-hover:text-[--text-primary] transition-colors">{t('settings.freeZone')}</span>
             </label>

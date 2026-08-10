@@ -58,13 +58,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 500 })
     }
 
-    // 5. Post-parse arithmetic verification for transaction records
     const data = result.data!
+    
+    // Extract text response for chat
+    const textResponse = (data.queryResponse as string) || (data.explanation as string) || (data.notes as string) || ''
+
+    // 5. Post-parse arithmetic verification for transaction records
     if (data.items && Array.isArray(data.items)) {
       const items = data.items as Array<{ qty: number; price: number; discount: number; lineTotal?: number }>
       const check = verifyArithmetic(items)
       if (!check.valid) {
-        // Auto-correct — don't trust model's arithmetic
         for (const correction of check.corrections) {
           items[correction.index].lineTotal = correction.expected
         }
@@ -72,7 +75,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // 5b. Foreign Currency CBUAE Exchange Rate Enrichment (FTA VAT Law compliance)
+    // 5b. Foreign Currency CBUAE Exchange Rate Enrichment
     const currency = (data.currency as string) || 'AED'
     if (currency !== 'AED') {
       let subtotalForeign = 0
@@ -100,7 +103,11 @@ export async function POST(request: NextRequest) {
       { org_id: orgId, user_id: user.id, role: 'assistant', content: JSON.stringify(data) },
     ])
 
-    return NextResponse.json({ success: true, data })
+    return NextResponse.json({ 
+      success: true, 
+      data,
+      text: textResponse 
+    })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal server error'
     return NextResponse.json({ error: message }, { status: 500 })

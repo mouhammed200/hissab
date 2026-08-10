@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import MessageList, { ChatMessage } from './MessageList';
 import InputBar from './InputBar';
-import RecordCard, { ParsedRecord, RecordTotals, ParsedItem } from './RecordCard';
+import { ParsedRecord, RecordTotals, ParsedItem } from './RecordCard';
 import LocaleSwitcher from '@/components/shared/LocaleSwitcher';
 import { useLocale } from '@/lib/i18n/locale';
 
@@ -15,8 +15,8 @@ interface ChatPaneProps {
   showPanel?: boolean;
 }
 
-export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePanel, showPanel = true }: ChatPaneProps) {
-  const { locale } = useLocale();
+export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePanel, showPanel = false }: ChatPaneProps) {
+  const { locale, t } = useLocale();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -57,24 +57,29 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
         body: JSON.stringify({ message: content, orgId, chatHistory })
       });
       
-      const data = await response.json();
-      
-      const parsedRecord: ParsedRecord | undefined = data.data ?? data.record;
+      const resJson = await response.json();
+      if (!response.ok || !resJson.success) {
+        throw new Error(resJson.error || 'Failed to process message');
+      }
+
+      const parsedRecord: ParsedRecord | undefined = resJson.data;
+      const isTransaction = parsedRecord && ['sale', 'purchase', 'employee', 'asset', 'related_party'].includes(parsedRecord.type);
+
       let totals: RecordTotals | undefined;
-      
-      if (parsedRecord && (parsedRecord.type === 'sale' || parsedRecord.type === 'purchase') && parsedRecord.items) {
+      if (isTransaction && parsedRecord.items) {
         totals = calcTotals(parsedRecord.items);
       }
 
-      const assistantMsgText = data.text || ((parsedRecord as any)?.queryResponse) || (locale === 'ar' ? 'تم استخراج المعاملة بنجاح.' : 'Transaction record extracted.');
+      // Extract Gemini natural text answer
+      const textAnswer = resJson.text || (parsedRecord as any)?.queryResponse || (parsedRecord as any)?.explanation || (parsedRecord as any)?.notes || '';
 
       const assistantMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: assistantMsgText,
-        record: parsedRecord,
-        recordTotals: totals,
-        recordStatus: parsedRecord ? 'pending' : undefined,
+        content: textAnswer || (isTransaction ? (locale === 'ar' ? 'تم استخراج تفاصيل المعاملة. يرجى المراجعة والتأكيد:' : 'Transaction details extracted. Please review and confirm:') : ''),
+        record: isTransaction ? parsedRecord : undefined,
+        recordTotals: isTransaction ? totals : undefined,
+        recordStatus: isTransaction ? 'pending' : undefined,
         timestamp: new Date()
       };
 
@@ -85,8 +90,8 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
         id: (Date.now() + 1).toString(),
         role: 'assistant',
         content: locale === 'ar' 
-          ? 'عذراً، حدث خطأ أثناء معالجة طلبك. يرجى المحاولة لاحقاً.' 
-          : "I'm sorry, I encountered an error while processing your request. Please try again later.",
+          ? 'عذراً، حدث خطأ أثناء الاتصال بالذكاء الاصطناعي. يرجى المحاولة مجدداً.' 
+          : "I'm sorry, I encountered an error while communicating with AI. Please try again.",
         timestamp: new Date()
       };
       setMessages(prev => [...prev, errorMsg]);
@@ -216,13 +221,13 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
             <button
               type="button"
               onClick={onTogglePanel}
-              title={showPanel ? 'Hide Panel' : 'Show Panel'}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-[var(--text-secondary)] border border-white/10 transition-colors"
+              title={showPanel ? t('panel.hidePanel') : t('panel.showPanel')}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600/20 text-emerald-400 hover:bg-emerald-600/30 border border-emerald-500/30 transition-colors"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7" />
               </svg>
-              <span className="hidden sm:inline">{showPanel ? (locale === 'ar' ? 'إخفاء اللوحة' : 'Hide Panel') : (locale === 'ar' ? 'إظهار اللوحة' : 'Show Panel')}</span>
+              <span>{t('panel.showPanel')}</span>
             </button>
           )}
         </div>

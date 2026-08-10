@@ -13,7 +13,7 @@ function AppContent({ userId }: { userId: string }) {
   const { org, loading, error } = useOrg()
   const { t, locale } = useLocale()
   const [refreshTrigger, setRefreshTrigger] = useState(0)
-  const [showPanel, setShowPanel] = useState(true)
+  const [showPanel, setShowPanel] = useState(false) // Default to Chat focus
 
   const handleRecordConfirmed = useCallback(() => {
     setRefreshTrigger(prev => prev + 1)
@@ -54,25 +54,19 @@ function AppContent({ userId }: { userId: string }) {
 
   return (
     <div className="h-screen flex overflow-hidden bg-[--bg-primary]">
-      {/* Chat Pane */}
-      <div className={`flex-1 min-w-0 flex flex-col transition-all duration-300 ${showPanel ? 'lg:max-w-[55%] xl:max-w-[60%]' : 'w-full'}`}>
-        <ChatPane
-          orgId={org.id}
-          userId={userId}
-          onRecordConfirmed={handleRecordConfirmed}
-          onTogglePanel={() => setShowPanel(!showPanel)}
-          showPanel={showPanel}
-        />
-      </div>
-
-      {/* Panel */}
-      {showPanel && (
-        <div className={`
-          fixed lg:relative inset-y-0 right-0 z-40
-          w-full lg:w-[45%] xl:w-[40%] lg:min-w-[400px] lg:max-w-[600px]
-          transform transition-transform duration-300 ease-in-out
-          border-l border-[--border-subtle] bg-[--bg-primary] shadow-2xl lg:shadow-none
-        `}>
+      {/* 100% Dedicated View Focus */}
+      {!showPanel ? (
+        <div className="w-full flex flex-col h-full animate-fade-in">
+          <ChatPane
+            orgId={org.id}
+            userId={userId}
+            onRecordConfirmed={handleRecordConfirmed}
+            onTogglePanel={() => setShowPanel(true)}
+            showPanel={false}
+          />
+        </div>
+      ) : (
+        <div className="w-full flex flex-col h-full animate-fade-in">
           <Panel 
             orgId={org.id} 
             refreshTrigger={refreshTrigger} 

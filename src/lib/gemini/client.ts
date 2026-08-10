@@ -28,24 +28,37 @@ const ACCOUNTING_SAFETY_SETTINGS = [
   { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_ONLY_HIGH },
 ]
 
-// Retry with exponential backoff on 429 rate limit
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
-  for (let attempt = 0; attempt < maxRetries; attempt++) {
-    try {
-      return await fn()
-    } catch (err: unknown) {
-      const errObj = err as { status?: number; message?: string }
-      const isRateLimit = errObj?.status === 429 || (errObj?.message && /429|quota|resource_exhausted/i.test(errObj.message))
-      
-      if (isRateLimit && attempt < maxRetries - 1) {
-        const delayMs = Math.pow(2, attempt) * 1000 + Math.random() * 500
-        await new Promise((res) => setTimeout(res, delayMs))
-        continue
+// Retry with exponential backoff on 429 rate limit or model fallback
+async function withRetry<T>(fn: (modelName: string) => Promise<T>, maxRetries = 3): Promise<T> {
+  const modelsToTry = ['gemini-3.6-flash', 'gemini-1.5-flash']
+  
+  for (const modelName of modelsToTry) {
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        return await fn(modelName)
+      } catch (err: unknown) {
+        const errObj = err as { status?: number; message?: string }
+        const isRateLimit = errObj?.status === 429 || (errObj?.message && /429|quota|resource_exhausted/i.test(errObj.message))
+        const isNotFound = errObj?.status === 404 || (errObj?.message && /404|not found|no longer available/i.test(errObj.message))
+
+        if (isNotFound) {
+          console.warn(`Model ${modelName} returned 404, trying fallback model...`)
+          break // break retry loop to try next model in modelsToTry
+        }
+        
+        if (isRateLimit && attempt < maxRetries - 1) {
+          const delayMs = Math.pow(2, attempt) * 1000 + Math.random() * 500
+          await new Promise((res) => setTimeout(res, delayMs))
+          continue
+        }
+
+        if (attempt === maxRetries - 1 && modelName === modelsToTry[modelsToTry.length - 1]) {
+          throw err
+        }
       }
-      throw err
     }
   }
-  throw new Error('Max retries exceeded')
+  throw new Error('All Gemini model attempts failed')
 }
 
 export async function parseTransaction(req: GeminiRequest): Promise<GeminiResponse> {
@@ -76,15 +89,14 @@ export async function parseTransaction(req: GeminiRequest): Promise<GeminiRespon
       parts: [{ text: userText }],
     })
 
-    const response = await withRetry(() =>
+    const response = await withRetry((selectedModel) =>
       ai.models.generateContent({
-        model: 'gemini-2.5-flash',
+        model: selectedModel,
         contents,
         config: {
           systemInstruction: systemPrompt,
           responseMimeType: 'application/json',
           responseSchema: RECORD_RESPONSE_SCHEMA,
-          temperature: 0.1,
           safetySettings: ACCOUNTING_SAFETY_SETTINGS,
         },
       })

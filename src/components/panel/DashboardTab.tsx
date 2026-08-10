@@ -21,6 +21,7 @@ export default function DashboardTab({ orgId, refreshTrigger }: DashboardTabProp
   const { t, locale } = useLocale()
   const [loading, setLoading] = useState(true)
   const [period, setPeriod] = useState<PeriodType>('thisYear')
+  const [chartData, setChartData] = useState<Array<{ name: string; revenue: number; expense: number }>>([])
   const [stats, setStats] = useState({
     totalRevenue: 0,
     totalExpenses: 0,
@@ -31,7 +32,7 @@ export default function DashboardTab({ orgId, refreshTrigger }: DashboardTabProp
     fixedAssetsValue: 0,
   })
 
-  // Dynamic VAT filing deadline calculation (28 days after end of current quarter)
+  // Dynamic VAT filing deadline calculation
   const now = new Date()
   const currentQuarterEndMonth = Math.floor(now.getMonth() / 3) * 3 + 2
   const quarterEnd = new Date(now.getFullYear(), currentQuarterEndMonth + 1, 0)
@@ -40,16 +41,6 @@ export default function DashboardTab({ orgId, refreshTrigger }: DashboardTabProp
     day: 'numeric',
     month: 'short',
   })
-
-  // Dynamic chart data
-  const chartData = [
-    { name: locale === 'ar' ? 'مارس' : 'Mar', revenue: 4000, expense: 2400 },
-    { name: locale === 'ar' ? 'أبريل' : 'Apr', revenue: 3000, expense: 1398 },
-    { name: locale === 'ar' ? 'مايو' : 'May', revenue: 2000, expense: 9800 },
-    { name: locale === 'ar' ? 'يونيو' : 'Jun', revenue: 2780, expense: 3908 },
-    { name: locale === 'ar' ? 'يوليو' : 'Jul', revenue: 1890, expense: 4800 },
-    { name: locale === 'ar' ? 'أغسطس' : 'Aug', revenue: 2390, expense: 3800 },
-  ]
 
   const getPeriodDates = (p: PeriodType) => {
     const today = new Date().toISOString().split('T')[0]
@@ -78,22 +69,63 @@ export default function DashboardTab({ orgId, refreshTrigger }: DashboardTabProp
       try {
         const { startDate, endDate } = getPeriodDates(period)
 
-        const [empRes, invRes, assetRes, plRes] = await Promise.all([
+        const [empRes, invDraftRes, assetRes, allInvoicesRes] = await Promise.all([
           supabase.from('employees').select('*', { count: 'exact', head: true }).eq('org_id', orgId).eq('status', 'active'),
           supabase.from('invoices').select('*', { count: 'exact', head: true }).eq('org_id', orgId).eq('status', 'draft'),
           supabase.from('fixed_assets').select('purchase_cost').eq('org_id', orgId),
-          fetch(`/api/reports?orgId=${orgId}&report=profit_loss&startDate=${startDate}&endDate=${endDate}`).then(r => r.json()),
+          supabase.from('invoices').select('type, total_amount, date, created_at, status').eq('org_id', orgId),
         ])
 
         const assetsTotal = assetRes.data?.reduce((sum, a) => sum + (Number(a.purchase_cost) || 0), 0) || 0
-        
+        const invoices = allInvoicesRes.data || []
+
+        // Calculate Totals filtered by selected period
         let totalRevenue = 0, totalExpenses = 0
-        if (plRes.data) {
-          for (const row of plRes.data) {
-            if (row.type === 'revenue' || row.account_type === 'revenue') totalRevenue += Number(row.balance || row.amount || 0)
-            if (row.type === 'expense' || row.account_type === 'expense') totalExpenses += Number(row.balance || row.amount || 0)
+        const monthAgg: Record<string, { revenue: number; expense: number; monthDate: Date }> = {}
+
+        for (const inv of invoices) {
+          const invDateStr = inv.date || inv.created_at
+          if (!invDateStr) continue
+          const invDate = new Date(invDateStr)
+          const isoDate = invDate.toISOString().split('T')[0]
+
+          const amt = Number(inv.total_amount) || 0
+
+          // Check period range
+          if (isoDate >= startDate && isoDate <= endDate) {
+            if (inv.type === 'SALE') totalRevenue += amt
+            if (inv.type === 'PURCHASE') totalExpenses += amt
           }
+
+          // Aggregate by month for chart
+          const monthKey = `${invDate.getFullYear()}-${String(invDate.getMonth() + 1).padStart(2, '0')}`
+          if (!monthAgg[monthKey]) {
+            monthAgg[monthKey] = { revenue: 0, expense: 0, monthDate: new Date(invDate.getFullYear(), invDate.getMonth(), 1) }
+          }
+          if (inv.type === 'SALE') monthAgg[monthKey].revenue += amt
+          if (inv.type === 'PURCHASE') monthAgg[monthKey].expense += amt
         }
+
+        // Sort chart months chronologically
+        const sortedMonths = Object.keys(monthAgg).sort()
+        const formattedChart = sortedMonths.map(key => {
+          const item = monthAgg[key]
+          const monthLabel = item.monthDate.toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-AE', { month: 'short' })
+          return {
+            name: monthLabel,
+            revenue: item.revenue,
+            expense: item.expense,
+          }
+        })
+
+        // If no records yet, provide a clean empty baseline
+        if (formattedChart.length === 0) {
+          const currentMonthName = new Date().toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-AE', { month: 'short' })
+          setChartData([{ name: currentMonthName, revenue: 0, expense: 0 }])
+        } else {
+          setChartData(formattedChart)
+        }
+
         const netProfit = totalRevenue - totalExpenses
         const vatDue = totalRevenue * 0.05
 
@@ -103,7 +135,7 @@ export default function DashboardTab({ orgId, refreshTrigger }: DashboardTabProp
           netProfit,
           vatDue,
           employeesCount: empRes.count || 0,
-          outstandingInvoices: invRes.count || 0,
+          outstandingInvoices: invDraftRes.count || 0,
           fixedAssetsValue: assetsTotal,
         })
       } catch (e) {
@@ -114,7 +146,7 @@ export default function DashboardTab({ orgId, refreshTrigger }: DashboardTabProp
     }
     
     fetchData()
-  }, [orgId, refreshTrigger, period]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [orgId, refreshTrigger, period, locale])
 
   if (loading) {
     return <div className="text-[var(--text-muted)] animate-pulse p-4 text-center">{t('common.loading')}</div>
@@ -123,12 +155,12 @@ export default function DashboardTab({ orgId, refreshTrigger }: DashboardTabProp
   return (
     <div className="space-y-6">
       {/* Header Period Filter */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-sm font-medium text-[var(--text-muted)]">{t('dashboard.monthlyTrend')}</h3>
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-xs sm:text-sm font-medium text-[var(--text-muted)]">{t('dashboard.monthlyTrend')}</h3>
         <select
           value={period}
           onChange={(e) => setPeriod(e.target.value as PeriodType)}
-          className="bg-white/5 border border-white/10 text-[var(--text-primary)] rounded-xl px-3 py-1.5 text-xs outline-none focus:border-[var(--accent)] transition-colors"
+          className="bg-[var(--bg-secondary)] border border-white/10 text-[var(--text-primary)] rounded-xl px-3 py-1.5 text-xs outline-none focus:border-[var(--accent)] transition-colors cursor-pointer"
         >
           <option value="thisMonth" className="bg-[var(--bg-secondary)]">{t('records.thisMonth')}</option>
           <option value="thisQuarter" className="bg-[var(--bg-secondary)]">{t('records.thisQuarter')}</option>
@@ -139,28 +171,28 @@ export default function DashboardTab({ orgId, refreshTrigger }: DashboardTabProp
 
       {/* Top Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div className="glass rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="glass rounded-xl p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-[var(--text-muted)]">{t('dashboard.totalRevenue')}</span>
-            <span className="text-2xl">💰</span>
+            <span className="text-xl">💰</span>
           </div>
           <p className="text-xl sm:text-2xl font-bold text-emerald-400">{formatCurrency(stats.totalRevenue)}</p>
           <p className="text-[10px] text-[var(--text-muted)] mt-1">{t('dashboard.vsLastMonth')}</p>
         </div>
         
-        <div className="glass rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="glass rounded-xl p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-[var(--text-muted)]">{t('dashboard.totalExpenses')}</span>
-            <span className="text-2xl">📉</span>
+            <span className="text-xl">📉</span>
           </div>
           <p className="text-xl sm:text-2xl font-bold text-amber-400">{formatCurrency(stats.totalExpenses)}</p>
           <p className="text-[10px] text-[var(--text-muted)] mt-1">{t('dashboard.vsLastMonth')}</p>
         </div>
         
-        <div className="glass rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="glass rounded-xl p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-[var(--text-muted)]">{t('dashboard.netProfit')}</span>
-            <span className="text-2xl">📊</span>
+            <span className="text-xl">📊</span>
           </div>
           <p className={`text-xl sm:text-2xl font-bold ${stats.netProfit >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
             {formatCurrency(stats.netProfit)}
@@ -168,10 +200,10 @@ export default function DashboardTab({ orgId, refreshTrigger }: DashboardTabProp
           <p className="text-[10px] text-[var(--text-muted)] mt-1">{t('dashboard.vsLastMonth')}</p>
         </div>
         
-        <div className="glass rounded-xl p-5">
-          <div className="flex items-center justify-between mb-3">
+        <div className="glass rounded-xl p-4 sm:p-5">
+          <div className="flex items-center justify-between mb-2">
             <span className="text-xs text-[var(--text-muted)]">{t('dashboard.vatDue')}</span>
-            <span className="text-2xl">🏛️</span>
+            <span className="text-xl">🏛️</span>
           </div>
           <p className="text-xl sm:text-2xl font-bold text-blue-400">{formatCurrency(stats.vatDue)}</p>
           <p className="text-[10px] text-[var(--text-muted)] mt-1">{t('dashboard.currentPeriod')}</p>
@@ -180,10 +212,9 @@ export default function DashboardTab({ orgId, refreshTrigger }: DashboardTabProp
 
       {/* Chart Container */}
       <div className="glass rounded-xl p-4 sm:p-5 h-72 sm:h-80 w-full overflow-hidden">
-        <div className="mb-4 text-xs text-[var(--text-muted)]">{t('dashboard.monthlyTrend')}</div>
-        <div className="w-full h-56 sm:h-64">
+        <div className="w-full h-60 sm:h-64">
           <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
+            <AreaChart data={chartData} margin={{ top: 10, right: 15, left: -15, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
                   <stop offset="5%" stopColor="#10b981" stopOpacity={0.3}/>
@@ -214,16 +245,16 @@ export default function DashboardTab({ orgId, refreshTrigger }: DashboardTabProp
           <div className="text-lg font-bold text-[var(--text-primary)]">{stats.employeesCount}</div>
           <div className="text-[10px] text-[var(--text-muted)] mt-0.5">{t('dashboard.employees')}</div>
         </div>
-        <div className="glass rounded-lg p-4 text-center">
+        <div className="glass rounded-lg p-3 text-center">
           <div className="text-lg font-bold text-[var(--text-primary)]">{stats.outstandingInvoices}</div>
           <div className="text-[10px] text-[var(--text-muted)] mt-0.5">{t('dashboard.outstandingInvoices')}</div>
         </div>
         <div className="glass rounded-lg p-3 text-center">
-          <div className="text-sm font-bold text-[var(--text-primary)] truncate">{formatCurrency(stats.fixedAssetsValue)}</div>
+          <div className="text-xs sm:text-sm font-bold text-[var(--text-primary)] truncate">{formatCurrency(stats.fixedAssetsValue)}</div>
           <div className="text-[10px] text-[var(--text-muted)] mt-0.5">{t('dashboard.fixedAssets')}</div>
         </div>
         <div className="glass rounded-lg p-3 text-center">
-          <div className="text-sm font-bold text-emerald-400 truncate">{vatDeadlineFormatted}</div>
+          <div className="text-xs sm:text-sm font-bold text-emerald-400 truncate">{vatDeadlineFormatted}</div>
           <div className="text-[10px] text-[var(--text-muted)] mt-0.5">{t('dashboard.vatDeadline')}</div>
         </div>
       </div>

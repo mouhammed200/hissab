@@ -6,7 +6,7 @@
   "chat": {
     "welcome": "مرحباً بك في حساب",
     "welcomeSubtitle": "ابدأ بكتابة معاملة، أو التقاط صورة، أو طرح سؤال.",
-    "placeholder": "اكتب معاملة، اطرح سؤالاً، أو التقط صورة إيصال...",
+    "placeholder": "اكتب معاملة أو اسأل سؤالاً...",
     "send": "إرسال",
     "recording": "جارٍ التسجيل...",
     "stopRecording": "إيقاف التسجيل",
@@ -54,7 +54,11 @@
     "records": "السجلات",
     "reports": "التقارير",
     "audit": "سجل المراجعة",
-    "settings": "الإعدادات"
+    "settings": "الإعدادات",
+    "hidePanel": "إخفاء اللوحة",
+    "showPanel": "إظهار اللوحة",
+    "fullScreenPanel": "تكبير اللوحة",
+    "splitScreen": "شاشة مقسمة"
   },
   "dashboard": {
     "totalRevenue": "إجمالي الإيرادات",
@@ -64,9 +68,9 @@
     "employees": "الموظفون",
     "outstandingInvoices": "الفواتير المعلقة",
     "fixedAssets": "الأصول الثابتة",
-    "vatDeadline": "موعد تقديم ضريبة القيمة المضافة",
-    "monthlyTrend": "الاتجاه خلال 6 أشهر",
-    "vsLastMonth": "مقارنة بالشهر الماضي",
+    "vatDeadline": "موعد تقديم الإقرار الضريبي",
+    "monthlyTrend": "المخطط المالي للفترة المختارة",
+    "vsLastMonth": "حسب الفترة المختارة",
     "currentPeriod": "الفترة الحالية"
   },
   "records": {
@@ -79,7 +83,7 @@
     "thisQuarter": "هذا الربع",
     "thisYear": "هذه السنة",
     "search": "بحث في السجلات...",
-    "noRecords": "لا توجد سجلات.",
+    "noRecords": "لا توجد سجلات بعد.",
     "loading": "جارٍ تحميل السجلات..."
   },
   "reports": {
@@ -107,6 +111,11 @@
   },
   "settings": {
     "title": "الإعدادات",
+    "subtitle": "إدارة الملف الشخصي وإعدادات ضريبة الشركة",
+    "userProfile": "الملف الشخصي",
+    "companyAndTax": "إعدادات الشركة والضريبة",
+    "emailReadOnly": "البريد الإلكتروني (قراءة فقط)",
+    "fullName": "اسمك الكامل",
     "companyName": "اسم الشركة",
     "companyNamePlaceholder": "اسم شركتك",
     "legalName": "الاسم القانوني",
@@ -118,28 +127,19 @@
     "language": "اللغة",
     "save": "حفظ التغييرات",
     "saving": "جارٍ الحفظ...",
-    "saved": "تم حفظ الإعدادات!",
+    "saved": "تم حفظ الإعدادات بنجاح!",
     "cancel": "إلغاء",
     "signOut": "تسجيل الخروج",
-    "error": "خطأ"
-  },
-  "auth": {
-    "login": "تسجيل الدخول",
-    "signup": "إنشاء حساب",
-    "email": "البريد الإلكتروني",
-    "password": "كلمة المرور",
-    "fullName": "الاسم الكامل",
-    "companyName": "اسم الشركة",
-    "signingIn": "جارٍ تسجيل الدخول...",
-    "creatingAccount": "جارٍ إنشاء الحساب...",
-    "noAccount": "ليس لديك حساب؟",
-    "hasAccount": "لديك حساب بالفعل؟",
-    "signUpLink": "إنشاء حساب",
-    "signInLink": "تسجيل الدخول",
-    "emailPlaceholder": "you@company.com",
-    "passwordPlaceholder": "كلمة مرورك",
-    "namePlaceholder": "اسمك الكامل",
-    "companyPlaceholder": "اسم شركتك"
+    "error": "خطأ",
+    "emirates": {
+      "Abu Dhabi": "أبوظبي",
+      "Dubai": "دبي",
+      "Sharjah": "الشارقة",
+      "Ajman": "عجمان",
+      "Umm Al Quwain": "أم القيوين",
+      "Ras Al Khaimah": "رأس الخيمة",
+      "Fujairah": "الفجيرة"
+    }
   },
   "common": {
     "loading": "جارٍ التحميل...",
@@ -148,11 +148,5 @@
     "loadingWorkspace": "جارٍ تحميل مساحة العمل...",
     "aed": "درهم",
     "currency": "AED"
-  },
-  "errors": {
-    "confirmFailed": "فشل تأكيد السجل. يرجى المحاولة مجدداً.",
-    "voidFailed": "فشل إلغاء السجل. يرجى المحاولة مجدداً.",
-    "exportFailed": "فشل التصدير",
-    "loadFailed": "فشل تحميل البيانات"
   }
 }

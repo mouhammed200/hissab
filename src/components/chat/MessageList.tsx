@@ -74,9 +74,11 @@ export default function MessageList({
     <div className="flex-1 overflow-y-auto p-4 flex flex-col gap-4">
       {messages.map((msg) => {
         const userContent = msg.content?.trim() || (locale === 'ar' ? 'معاملة جديدة' : 'Transaction Message');
+        const isUser = msg.role === 'user';
+        
         return (
-          <div key={msg.id} className={`flex flex-col max-w-[85%] ${msg.role === 'user' ? 'self-end' : 'self-start'}`}>
-            {msg.role === 'user' ? (
+          <div key={msg.id} className={`flex flex-col max-w-[85%] ${isUser ? 'self-end' : 'self-start'}`}>
+            {isUser ? (
               <div className="bg-[var(--accent)] bg-opacity-20 text-[var(--text-primary)] border border-[var(--border-accent)] rounded-2xl rounded-tr-sm px-4 py-3 shadow-lg glow-accent">
                 <p className="whitespace-pre-wrap text-sm">{userContent}</p>
               </div>
@@ -104,9 +106,7 @@ export default function MessageList({
               </>
             )}
             <span className={`text-[10px] text-[var(--text-muted)] mt-1 px-1 ${
-              msg.role === 'user' 
-                ? (locale === 'ar' ? 'text-left self-start' : 'text-right self-end')
-                : (locale === 'ar' ? 'text-right self-end' : 'text-left self-start')
+              isUser ? 'text-end self-end' : 'text-start self-start'
             }`}>
               {formatTime(msg.timestamp, locale)}
             </span>
