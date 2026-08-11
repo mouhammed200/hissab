@@ -50,7 +50,17 @@ function AppContent({ userId }: { userId: string }) {
     )
   }
 
-  if (!org) return null
+  if (!org) {
+    return (
+      <div className="h-screen flex items-center justify-center bg-[--bg-primary]">
+        <div className="glass rounded-2xl p-8 max-w-md text-center">
+          <div className="text-4xl mb-4">🏢</div>
+          <h2 className="text-lg font-semibold text-[--text-primary] mb-2">{t('common.error')}</h2>
+          <p className="text-sm text-[--text-secondary]">{t('common.workspaceUnavailable')}</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="h-screen flex overflow-hidden bg-[--bg-primary]">

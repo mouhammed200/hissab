@@ -146,6 +146,7 @@
     "error": "حدث خطأ ما",
     "tryAgain": "حاول مجدداً",
     "loadingWorkspace": "جارٍ تحميل مساحة العمل...",
+    "workspaceUnavailable": "مساحة العمل غير متاحة.",
     "aed": "درهم",
     "currency": "AED"
   }

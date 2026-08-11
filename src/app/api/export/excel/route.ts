@@ -1,25 +1,19 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@/lib/supabase/server'
+import { requireOrgAccess } from '@/lib/supabase/guard'
 import * as XLSX from 'xlsx'
 
 export async function GET(req: Request) {
   try {
-    const supabase = await createClient()
-    const { data: { user } } = await supabase.auth.getUser()
-    
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
-
     const { searchParams } = new URL(req.url)
     const orgId = searchParams.get('orgId')
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
     const type = searchParams.get('type')
 
-    if (!orgId) {
-      return NextResponse.json({ error: 'Missing orgId' }, { status: 400 })
-    }
+    // SECURITY: membership check — this endpoint dumps the entire books to Excel.
+    const guard = await requireOrgAccess(orgId)
+    if (!guard.ok) return guard.response
+    const { supabase } = guard
 
     // Create workbook
     const wb = XLSX.utils.book_new()
@@ -57,25 +51,33 @@ export async function GET(req: Request) {
         if (!inv.invoice_items || inv.invoice_items.length === 0) {
           return [{
             InvoiceNumber: inv.invoice_number,
-            Date: inv.date,
-            Contact: inv.contacts?.name,
-            Subtotal: inv.subtotal,
+            Date: inv.issue_date,
+            DueDate: inv.due_date,
+            Contact: inv.contacts?.name ?? '',
+            Subtotal: inv.subtotal_amount,
+            Discount: inv.discount_amount,
             VAT: inv.vat_amount,
             Total: inv.total_amount,
+            Currency: inv.currency,
             Status: inv.status
           }]
         }
         return inv.invoice_items.map((item: any) => ({
           InvoiceNumber: inv.invoice_number,
-          Date: inv.date,
-          Contact: inv.contacts?.name,
+          Date: inv.issue_date,
+          DueDate: inv.due_date,
+          Contact: inv.contacts?.name ?? '',
           Status: inv.status,
           ItemDescription: item.description,
           Quantity: item.quantity,
           UnitPrice: item.unit_price,
+          Discount: item.discount,
+          ItemSubtotal: item.subtotal,
+          VATCategory: item.vat_category,
           VATRate: item.vat_rate,
-          ItemTotal: item.total_amount,
-          InvoiceSubtotal: inv.subtotal,
+          ItemVAT: item.vat_amount,
+          ItemTotal: item.total,
+          InvoiceSubtotal: inv.subtotal_amount,
           InvoiceVAT: inv.vat_amount,
           InvoiceTotal: inv.total_amount
         }))
@@ -112,7 +114,7 @@ export async function GET(req: Request) {
     // 5. Related Party Transactions
     if (!type || type === 'relatedParty') {
       const rptQuery = supabase.from('related_party_transactions').select('*').eq('org_id', orgId)
-      const { data: rpts } = await withDateFilter(rptQuery, 'date')
+      const { data: rpts } = await withDateFilter(rptQuery, 'transaction_date')
       
       const wsRpts = XLSX.utils.json_to_sheet(rpts || [])
       XLSX.utils.book_append_sheet(wb, wsRpts, 'Related Party Txns')
@@ -153,7 +155,7 @@ export async function GET(req: Request) {
     if (!type) {
       const { data: tb } = await supabase.rpc('fn_trial_balance', { 
         p_org_id: orgId, 
-        p_as_of_date: endDate || new Date().toISOString() 
+        p_as_of_date: endDate || new Date().toISOString().split('T')[0] 
       })
       
       const wsTb = XLSX.utils.json_to_sheet(tb || [])
@@ -161,10 +163,10 @@ export async function GET(req: Request) {
     }
 
     // Generate buffer
-    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' })
+    const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer
     const date = new Date().toISOString().split('T')[0]
 
-    return new NextResponse(buf, {
+    return new NextResponse(new Uint8Array(buf), {
       headers: {
         'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
         'Content-Disposition': `attachment; filename="hissab-export-${date}.xlsx"`,

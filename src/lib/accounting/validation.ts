@@ -23,10 +23,12 @@ export function verifyArithmetic(items: Array<{ qty: number; price: number; disc
   const corrections: Array<{ index: number; expected: number; got: number }> = []
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
-    const expected = item.qty * item.price - item.discount
-    // Check if the item has a lineTotal property and it doesn't match
+    const qty = Number(item.qty)
+    const price = Number(item.price)
+    const discount = Number(item.discount ?? 0)
+    const expected = qty * price - discount
     const got = (item as any).lineTotal ?? expected
-    if (Math.abs(expected - got) > 0.01) {
+    if (!Number.isFinite(qty) || !Number.isFinite(price) || !Number.isFinite(discount) || !Number.isFinite(got) || expected < 0 || Math.abs(expected - got) > 0.01) {
       corrections.push({ index: i, expected, got })
     }
   }

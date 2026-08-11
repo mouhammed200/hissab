@@ -77,7 +77,13 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
       })
       const res = await fetch(`/api/reports?${params}`)
       const json = await res.json()
-      if (res.ok) setReportData(p => ({ ...p, [type]: json.data || [] }))
+      if (res.ok) {
+        // VAT Return, Balance Sheet and P&L can come back as a single object.
+        // Storing it raw made `.length` undefined, so every table said "No data".
+        const raw = json.data
+        const rows = Array.isArray(raw) ? raw : raw ? [raw] : []
+        setReportData(p => ({ ...p, [type]: rows }))
+      }
     } catch (e) {
       console.error(e)
     } finally {
@@ -114,8 +120,30 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
   // Helpers to render generic tables
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderTable = (rows: any[]) => {
-    if (!rows.length) return <p className="text-[var(--text-muted)] italic text-center py-4">No data for this period.</p>
-    const keys = Object.keys(rows[0])
+    const safeRows = Array.isArray(rows) ? rows : rows ? [rows] : []
+    if (!safeRows.length) return <p className="text-[var(--text-muted)] italic text-center py-4">No data for this period.</p>
+    const keys = Object.keys(safeRows[0] ?? {})
+    if (!keys.length) return <p className="text-[var(--text-muted)] italic text-center py-4">No data for this period.</p>
+
+    // Single-record reports (VAT 201, summaries) read far better vertically
+    // than as one very wide row.
+    if (safeRows.length === 1 && keys.length > 6) {
+      const row = safeRows[0]
+      return (
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
+          {keys.map(k => (
+            <div key={k} className="flex items-baseline justify-between gap-3 border-b border-[var(--border-subtle)] py-1.5 last:border-0">
+              <dt className="text-[var(--text-muted)] capitalize">{k.replace(/_/g, ' ')}</dt>
+              <dd className="text-[var(--text-secondary)] font-medium tabular-nums">
+                {typeof row[k] === 'number' ? fmt(row[k]) : (row[k] ?? '-')}
+              </dd>
+            </div>
+          ))}
+        </dl>
+      )
+    }
+
+    const rowsToRender = safeRows
     return (
       <div className="overflow-x-auto">
         <table className="w-full text-left border-collapse text-xs">
@@ -125,7 +153,7 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, i) => (
+            {rowsToRender.map((row, i) => (
               <tr key={i} className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-white/5">
                 {keys.map(k => (
                   <td key={k} className="py-2 pr-4 text-[var(--text-secondary)]">

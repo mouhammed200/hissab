@@ -25,21 +25,35 @@ export async function updateSession(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // If not logged in and not on auth pages, redirect to login
   const path = request.nextUrl.pathname
-  const isAuthPage = path.includes('/login') || path.includes('/signup') || path.includes('/callback')
-  
-  if (!user && !isAuthPage && path !== '/') {
+  const isCallback = path.startsWith('/callback')
+  const isAuthPage = path.startsWith('/login') || path.startsWith('/signup') || isCallback
+
+  /**
+   * Carries the refreshed Supabase auth cookies onto a redirect response.
+   * Returning a bare NextResponse.redirect() here would discard the rotated
+   * tokens that getUser() just wrote, causing intermittent session drops.
+   */
+  const redirectTo = (pathname: string) => {
     const url = request.nextUrl.clone()
-    url.pathname = '/login'
-    return NextResponse.redirect(url)
+    url.pathname = pathname
+    url.search = ''
+    const response = NextResponse.redirect(url)
+    supabaseResponse.cookies.getAll().forEach((cookie) => {
+      response.cookies.set(cookie)
+    })
+    return response
   }
 
-  // If logged in and on auth page, redirect to app
-  if (user && isAuthPage) {
-    const url = request.nextUrl.clone()
-    url.pathname = '/app'
-    return NextResponse.redirect(url)
+  // Not logged in and not on an auth page -> login
+  if (!user && !isAuthPage && path !== '/') {
+    return redirectTo('/login')
+  }
+
+  // Logged in and sitting on login/signup -> app.
+  // /callback is excluded: it must be allowed to run its code exchange.
+  if (user && isAuthPage && !isCallback) {
+    return redirectTo('/app')
   }
 
   return supabaseResponse

@@ -18,6 +18,7 @@ export default function InputBar({ onSend, onFileUpload, loading = false, disabl
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const recognitionRef = useRef<any>(null);
+  const speechBaseRef = useRef('');
 
   const adjustHeight = () => {
     if (textareaRef.current) {
@@ -41,13 +42,17 @@ export default function InputBar({ onSend, onFileUpload, loading = false, disabl
         recognition.lang = locale === 'ar' ? 'ar-AE' : 'en-US';
 
         recognition.onresult = (event: any) => {
-          let transcript = '';
+          let finalTranscript = '';
+          let interimTranscript = '';
           for (let i = event.resultIndex; i < event.results.length; i++) {
-            transcript += event.results[i][0].transcript;
+            const part = event.results[i][0].transcript;
+            if (event.results[i].isFinal) finalTranscript += part;
+            else interimTranscript += part;
           }
-          if (transcript) {
-            setText((prev) => (prev ? `${prev} ${transcript}` : transcript));
-          }
+          // Re-render the current utterance from a stable base instead of
+          // appending interim fragments repeatedly.
+          if (finalTranscript) speechBaseRef.current = `${speechBaseRef.current} ${finalTranscript}`.trim();
+          setText(`${speechBaseRef.current}${interimTranscript ? ` ${interimTranscript}` : ''}`.trim());
         };
 
         recognition.onerror = (event: any) => {

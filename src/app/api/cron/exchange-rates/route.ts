@@ -1,12 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCbuaeExchangeRate } from '@/lib/accounting/fx'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 const SUPPORTED_CURRENCIES = ['USD', 'EUR', 'GBP', 'SAR', 'INR', 'CAD', 'AUD', 'CNY']
 
 export async function GET(request: NextRequest) {
-  // Verify cron authorization (optional CRON_SECRET header)
+  // A missing secret must fail closed. The old guard made this endpoint public
+  // whenever CRON_SECRET was absent.
+  const secret = process.env.CRON_SECRET
   const authHeader = request.headers.get('authorization')
-  if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!secret || authHeader !== `Bearer ${secret}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
@@ -14,18 +17,20 @@ export async function GET(request: NextRequest) {
   const rates: Record<string, number> = {}
 
   try {
+    const rows = []
     for (const currency of SUPPORTED_CURRENCIES) {
       const rateObj = await getCbuaeExchangeRate(currency, today)
       rates[currency] = rateObj.rateToAed
+      rows.push({ currency_code: currency, rate_to_aed: rateObj.rateToAed, rate_date: today, source: rateObj.source })
     }
 
-    return NextResponse.json({
-      success: true,
-      date: today,
-      baseCurrency: 'AED',
-      rates,
-      note: 'Rates synced with Central Bank of the UAE (CBUAE) official exchange rate standards.',
-    })
+    // Persist only after the complete batch succeeds, so the table never holds
+    // a silently partial daily snapshot.
+    const admin = createAdminClient()
+    const { error } = await admin.from('exchange_rates').upsert(rows, { onConflict: 'currency_code,rate_date' })
+    if (error) throw error
+
+    return NextResponse.json({ success: true, date: today, baseCurrency: 'AED', rates })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Failed to fetch exchange rates'
     return NextResponse.json({ error: message }, { status: 500 })

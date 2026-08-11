@@ -146,6 +146,7 @@
     "error": "Something went wrong",
     "tryAgain": "Try Again",
     "loadingWorkspace": "Loading workspace...",
+    "workspaceUnavailable": "Workspace unavailable.",
     "aed": "AED",
     "currency": "AED"
   }

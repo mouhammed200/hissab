@@ -1,60 +1,60 @@
 /**
- * UAE End-of-Service Gratuity Calculator
- * Per Federal Decree-Law No. 33 of 2021 (effective 2 Feb 2022)
+ * UAE End-of-Service Gratuity Calculator.
+ * Federal Decree-Law No. 33 of 2021, as amended.
  *
- * Key change from old law:
- * - Pre-2022: resignation reductions (1/3, 2/3) applied based on years served
- * - Post-2022 (current): ALL employees with ≥ 1 year get FULL gratuity,
- *   regardless of whether they resign or are terminated.
- *   The adjustmentFactor is ALWAYS 1.0 under the new law.
+ * Settlement entitlement requires one year of continuous service. That is not
+ * the same as the monthly accounting provision: IAS 19 requires an accrual
+ * from the first month of service, so monthlyGratuityAccrual() never waits for
+ * the one-year vesting threshold.
  */
 
 export interface GratuityInput {
-  basicSalary: number       // Monthly basic salary in AED (excludes allowances)
-  hireDate: string          // ISO date string
-  asOfDate?: string         // Termination/calculation date. Default: today
-  contractType?: 'limited' | 'unlimited'  // No longer affects gratuity amount
+  basicSalary: number
+  hireDate: string
+  asOfDate?: string
+  contractType?: 'limited' | 'unlimited'
 }
 
 export interface GratuityResult {
   yearsOfService: number
   dailyBasicRate: number
-  first5YearsComponent: number   // 21 working days × year (up to 5 years)
-  beyond5YearsComponent: number  // 30 working days × year (beyond 5 years)
+  first5YearsComponent: number
+  beyond5YearsComponent: number
   grossGratuity: number
-  cappedGratuity: number         // Capped at 24 months basic salary
-  monthlyAccrual: number         // For monthly journal entry
-  qualifies: boolean             // Must have ≥ 1 full year of service
+  cappedGratuity: number
+  monthlyAccrual: number
+  qualifies: boolean
+}
+
+function parseDateOnly(value: string): Date {
+  const [year, month, day] = value.slice(0, 10).split('-').map(Number)
+  return new Date(Date.UTC(year, month - 1, day))
+}
+
+function serviceYears(hireDate: string, asOfDate?: string) {
+  const hire = parseDateOnly(hireDate)
+  const asOf = asOfDate ? parseDateOnly(asOfDate) : new Date()
+  const days = Math.max(0, (asOf.getTime() - hire.getTime()) / 86_400_000)
+  return days / 365.25
 }
 
 export function calculateGratuity(input: GratuityInput): GratuityResult {
-  const hire  = new Date(input.hireDate)
-  const asOf  = input.asOfDate ? new Date(input.asOfDate) : new Date()
-
-  const daysOfService   = Math.max(0, (asOf.getTime() - hire.getTime()) / (1000 * 60 * 60 * 24))
-  const yearsOfService  = daysOfService / 365.25
-  const dailyBasicRate  = input.basicSalary / 30
-
-  // Must have completed at least 1 full year to receive any gratuity
+  const salary = Math.max(0, input.basicSalary || 0)
+  const yearsOfService = serviceYears(input.hireDate, input.asOfDate)
+  const dailyBasicRate = salary / 30
   const qualifies = yearsOfService >= 1
 
-  let first5YearsComponent  = 0
-  let beyond5YearsComponent = 0
-  let grossGratuity         = 0
+  const yearsFirst5 = Math.min(5, yearsOfService)
+  const yearsBeyond5 = Math.max(0, yearsOfService - 5)
+  const first5YearsComponent = yearsFirst5 * 21 * dailyBasicRate
+  const beyond5YearsComponent = yearsBeyond5 * 30 * dailyBasicRate
+  const grossGratuity = qualifies ? first5YearsComponent + beyond5YearsComponent : 0
+  const cappedGratuity = Math.min(grossGratuity, salary * 24)
 
-  if (qualifies) {
-    const yearsFirst5  = Math.min(5, yearsOfService)
-    const yearsBeyond5 = Math.max(0, yearsOfService - 5)
-
-    first5YearsComponent  = yearsFirst5  * 21 * dailyBasicRate
-    beyond5YearsComponent = yearsBeyond5 * 30 * dailyBasicRate
-    grossGratuity         = first5YearsComponent + beyond5YearsComponent
-  }
-
-  // Under Federal Decree-Law No. 33 of 2021, no reduction for resignation.
-  // Capped at 2 years (24 months) of basic salary.
-  const cappedGratuity = Math.min(grossGratuity, input.basicSalary * 24)
-  const monthlyAccrual = cappedGratuity / Math.max(yearsOfService * 12, 1)
+  // Current-period provision: 21 days/year for the first five years, then
+  // 30 days/year. This accrues from month one and is not a lifetime average.
+  const annualAccrual = yearsOfService <= 5 ? 21 * dailyBasicRate : 30 * dailyBasicRate
+  const monthlyAccrual = annualAccrual / 12
 
   return {
     yearsOfService,
@@ -68,11 +68,6 @@ export function calculateGratuity(input: GratuityInput): GratuityResult {
   }
 }
 
-/**
- * Monthly gratuity accrual for journal entries.
- * Records the monthly provision (Debit: Gratuity Expense, Credit: Gratuity Payable).
- */
 export function monthlyGratuityAccrual(input: GratuityInput): number {
-  const result = calculateGratuity(input)
-  return result.monthlyAccrual
+  return calculateGratuity(input).monthlyAccrual
 }

@@ -56,7 +56,7 @@ export default function Panel({
   const { t, locale } = useLocale()
 
   return (
-    <div className="flex flex-col h-full bg-[var(--bg-primary)] border-l border-[var(--border-subtle)] overflow-hidden">
+    <div className="flex flex-col h-full bg-[var(--bg-primary)] border-s border-[var(--border-subtle)] overflow-hidden">
       {/* Sub-Bar 1: Workspace Actions & Controls */}
       <div className="flex items-center justify-between px-4 sm:px-6 py-3 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]">
         <div className="font-bold text-lg text-[var(--accent)] gradient-text">

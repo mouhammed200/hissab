@@ -22,6 +22,7 @@ interface MessageListProps {
   onEditRecord: (messageId: string) => void;
   onSaveEdit: (messageId: string, updated: ParsedRecord) => void;
   onCancelEdit: (messageId: string) => void;
+  onSuggestion: (text: string) => void;
 }
 
 const formatTime = (date: Date, locale: string) => {
@@ -45,7 +46,8 @@ export default function MessageList({
   onVoidRecord,
   onEditRecord,
   onSaveEdit,
-  onCancelEdit
+  onCancelEdit,
+  onSuggestion
 }: MessageListProps) {
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const { t, locale } = useLocale();
@@ -62,9 +64,9 @@ export default function MessageList({
         <p className="text-[var(--text-secondary)] max-w-md mb-8">{t('chat.welcomeSubtitle')}</p>
         
         <div className="grid grid-cols-1 gap-3 w-full max-w-md">
-          <div className="p-3 glass glass-hover rounded-lg text-sm text-[var(--text-secondary)] ltr:text-left rtl:text-right cursor-pointer border border-[var(--border-subtle)]">{t('chat.suggestions.sale')}</div>
-          <div className="p-3 glass glass-hover rounded-lg text-sm text-[var(--text-secondary)] ltr:text-left rtl:text-right cursor-pointer border border-[var(--border-subtle)]">{t('chat.suggestions.expense')}</div>
-          <div className="p-3 glass glass-hover rounded-lg text-sm text-[var(--text-secondary)] ltr:text-left rtl:text-right cursor-pointer border border-[var(--border-subtle)]">{t('chat.suggestions.query')}</div>
+          <button type="button" onClick={() => onSuggestion(t('chat.suggestions.sale'))} className="p-3 glass glass-hover rounded-lg text-sm text-[var(--text-secondary)] ltr:text-left rtl:text-right cursor-pointer border border-[var(--border-subtle)] text-start">{t('chat.suggestions.sale')}</button>
+          <button type="button" onClick={() => onSuggestion(t('chat.suggestions.expense'))} className="p-3 glass glass-hover rounded-lg text-sm text-[var(--text-secondary)] ltr:text-left rtl:text-right cursor-pointer border border-[var(--border-subtle)] text-start">{t('chat.suggestions.expense')}</button>
+          <button type="button" onClick={() => onSuggestion(t('chat.suggestions.query'))} className="p-3 glass glass-hover rounded-lg text-sm text-[var(--text-secondary)] ltr:text-left rtl:text-right cursor-pointer border border-[var(--border-subtle)] text-start">{t('chat.suggestions.query')}</button>
         </div>
       </div>
     );

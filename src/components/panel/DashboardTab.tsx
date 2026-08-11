@@ -73,37 +73,54 @@ export default function DashboardTab({ orgId, refreshTrigger }: DashboardTabProp
           supabase.from('employees').select('*', { count: 'exact', head: true }).eq('org_id', orgId).eq('status', 'active'),
           supabase.from('invoices').select('*', { count: 'exact', head: true }).eq('org_id', orgId).eq('status', 'draft'),
           supabase.from('fixed_assets').select('purchase_cost').eq('org_id', orgId),
-          supabase.from('invoices').select('type, total_amount, date, created_at, status').eq('org_id', orgId),
+          // Real columns: invoice_type / issue_date / subtotal_amount (not type / date / subtotal)
+          supabase
+            .from('invoices')
+            .select('invoice_type, subtotal_amount, vat_amount, total_amount, issue_date, created_at, status')
+            .eq('org_id', orgId)
+            .not('status', 'in', '("void","draft")'),
         ])
 
         const assetsTotal = assetRes.data?.reduce((sum, a) => sum + (Number(a.purchase_cost) || 0), 0) || 0
         const invoices = allInvoicesRes.data || []
 
         // Calculate Totals filtered by selected period
-        let totalRevenue = 0, totalExpenses = 0
+        let totalRevenue = 0, totalExpenses = 0, outputVat = 0, inputVat = 0
         const monthAgg: Record<string, { revenue: number; expense: number; monthDate: Date }> = {}
 
         for (const inv of invoices) {
-          const invDateStr = inv.date || inv.created_at
+          const invDateStr = (inv.issue_date as string) || (inv.created_at as string)
           if (!invDateStr) continue
-          const invDate = new Date(invDateStr)
-          const isoDate = invDate.toISOString().split('T')[0]
+          // issue_date is a DATE string; slicing avoids the UTC shift that
+          // toISOString() introduces in UAE time (UTC+4).
+          const isoDate = String(invDateStr).slice(0, 10)
+          const [yearPart, monthPart] = isoDate.split('-')
 
-          const amt = Number(inv.total_amount) || 0
+          const isSale = inv.invoice_type === 'sales_invoice'
+          const isPurchase = inv.invoice_type === 'purchase_invoice'
+          if (!isSale && !isPurchase) continue
+
+          // Revenue and expenses are net of VAT; VAT is not income.
+          const net = Number(inv.subtotal_amount) || 0
+          const vat = Number(inv.vat_amount) || 0
 
           // Check period range
           if (isoDate >= startDate && isoDate <= endDate) {
-            if (inv.type === 'SALE') totalRevenue += amt
-            if (inv.type === 'PURCHASE') totalExpenses += amt
+            if (isSale) { totalRevenue += net; outputVat += vat }
+            if (isPurchase) { totalExpenses += net; inputVat += vat }
           }
 
           // Aggregate by month for chart
-          const monthKey = `${invDate.getFullYear()}-${String(invDate.getMonth() + 1).padStart(2, '0')}`
+          const monthKey = `${yearPart}-${monthPart}`
           if (!monthAgg[monthKey]) {
-            monthAgg[monthKey] = { revenue: 0, expense: 0, monthDate: new Date(invDate.getFullYear(), invDate.getMonth(), 1) }
+            monthAgg[monthKey] = {
+              revenue: 0,
+              expense: 0,
+              monthDate: new Date(Number(yearPart), Number(monthPart) - 1, 1),
+            }
           }
-          if (inv.type === 'SALE') monthAgg[monthKey].revenue += amt
-          if (inv.type === 'PURCHASE') monthAgg[monthKey].expense += amt
+          if (isSale) monthAgg[monthKey].revenue += net
+          if (isPurchase) monthAgg[monthKey].expense += net
         }
 
         // Sort chart months chronologically
@@ -127,7 +144,9 @@ export default function DashboardTab({ orgId, refreshTrigger }: DashboardTabProp
         }
 
         const netProfit = totalRevenue - totalExpenses
-        const vatDue = totalRevenue * 0.05
+        // Net VAT payable = output VAT - recoverable input VAT.
+        // 5% of gross revenue was wrong: it ignored zero-rated, exempt and input VAT.
+        const vatDue = outputVat - inputVat
 
         setStats({
           totalRevenue,

@@ -162,10 +162,10 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               </select>
             </div>
 
-            <label className="flex items-center gap-3 cursor-pointer group pt-1">
-              <div 
+            <button type="button" onClick={() => setIsFreeZone(value => !value)} className="flex items-center gap-3 cursor-pointer group pt-1 text-start">
+              <span 
                 className={`w-9 h-5 rounded-full transition-colors relative ${isFreeZone ? 'bg-emerald-600' : 'bg-white/10'}`}
-                onClick={() => setIsFreeZone(!isFreeZone)}
+                role="switch" aria-checked={isFreeZone} aria-label={t('settings.freeZone')}
               >
                 <div 
                   className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
@@ -174,9 +174,9 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
                       : (isFreeZone ? 'translate-x-4' : 'translate-x-0.5')
                   }`} 
                 />
-              </div>
+              </span>
               <span className="text-xs text-[--text-secondary] group-hover:text-[--text-primary] transition-colors">{t('settings.freeZone')}</span>
-            </label>
+            </button>
           </div>
 
           {/* Language Toggle */}

@@ -4,6 +4,10 @@ import { parseTransaction } from '@/lib/gemini/client'
 import { verifyArithmetic } from '@/lib/accounting/validation'
 import { convertForeignInvoiceToAed } from '@/lib/accounting/fx'
 
+const requestWindows = new Map<string, { startedAt: number; count: number }>()
+const MAX_REQUESTS_PER_MINUTE = 20
+const MAX_MESSAGE_CHARS = 20_000
+
 export async function POST(request: NextRequest) {
   // 1. Authenticate
   const supabase = await createClient()
@@ -15,15 +19,26 @@ export async function POST(request: NextRequest) {
 
   try {
     const body = await request.json()
-    const { message, orgId, chatHistory } = body as {
+    if (typeof body.message !== 'string' || body.message.length > MAX_MESSAGE_CHARS) {
+      return NextResponse.json({ error: 'Message is missing or too large' }, { status: 413 })
+    }
+    const { message, orgId, chatHistory, fileData } = body as {
       message: string
       orgId: string
       chatHistory?: Array<{ role: 'user' | 'model'; content: string }>
+      fileData?: { mimeType: string; data: string }
     }
 
     if (!message || !orgId) {
       return NextResponse.json({ error: 'Missing message or orgId' }, { status: 400 })
     }
+
+    const throttleKey = `${user.id}:${body.orgId}`
+    const now = Date.now()
+    const window = requestWindows.get(throttleKey)
+    if (!window || now - window.startedAt >= 60_000) requestWindows.set(throttleKey, { startedAt: now, count: 1 })
+    else if (window.count >= MAX_REQUESTS_PER_MINUTE) return NextResponse.json({ error: 'Rate limit exceeded. Try again shortly.' }, { status: 429 })
+    else window.count += 1
 
     // 2. Verify user has access to this org
     const { data: membership } = await supabase
@@ -44,7 +59,10 @@ export async function POST(request: NextRequest) {
       .eq('id', orgId)
       .single()
 
-    // 4. Call Gemini
+    // 4. Call Gemini. Reject oversized inline uploads before sending them upstream.
+    if (fileData && (!fileData.mimeType || !fileData.data || fileData.data.length > 8_000_000)) {
+      return NextResponse.json({ error: 'Attachment is missing or too large (max 6 MB)' }, { status: 413 })
+    }
     const result = await parseTransaction({
       userMessage: message,
       contextData: {
@@ -52,6 +70,7 @@ export async function POST(request: NextRequest) {
         userRole: membership.role,
       },
       chatHistory,
+      fileData,
     })
 
     if (!result.success) {

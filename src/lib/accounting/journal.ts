@@ -76,14 +76,28 @@ export function buildSaleJournalLines(
       vat_category: vatCategory
     })
   } else {
-    // Fallback
+    // Out-of-scope/unknown categories cannot silently drop VAT. Preserve the
+    // double entry and make the VAT treatment explicit as standard when a VAT
+    // amount was actually supplied.
     lines.push({
       account_code: '4000',
       debit: 0,
       credit: subtotal,
       description,
-      vat_category: vatCategory
+      vat_category: vatCategory,
+      vat_amount: 0,
     })
+    if (vatAmount > 0) {
+      lines.push({
+        account_code: '2100',
+        debit: 0,
+        credit: vatAmount,
+        description: 'Output VAT (uncategorized input normalized)',
+        vat_category: 'standard',
+        vat_rate: 0.05,
+        vat_amount: vatAmount,
+      })
+    }
   }
 
   return lines
@@ -111,7 +125,10 @@ export function buildPurchaseJournalLines(
       account_code: '1400',
       debit: vatAmount,
       credit: 0,
-      description: 'Input VAT (Reverse Charge)'
+      description: 'Input VAT (Reverse Charge)',
+      vat_category: 'standard',
+      vat_rate: 0.05,
+      vat_amount: vatAmount
     })
     // CR 2010 A/P = subtotal
     lines.push({
@@ -126,7 +143,10 @@ export function buildPurchaseJournalLines(
       account_code: '2100',
       debit: 0,
       credit: vatAmount,
-      description: 'Output VAT (Reverse Charge)'
+      description: 'Output VAT (Reverse Charge)',
+      vat_category: 'standard',
+      vat_rate: 0.05,
+      vat_amount: vatAmount
     })
   } else {
     // DR 5000 COGS = subtotal
@@ -142,7 +162,10 @@ export function buildPurchaseJournalLines(
         account_code: '1400',
         debit: vatAmount,
         credit: 0,
-        description: 'Input VAT'
+        description: 'Input VAT',
+        vat_category: 'standard',
+        vat_rate: 0.05,
+        vat_amount: vatAmount
       })
     }
     // CR 2010 A/P = total

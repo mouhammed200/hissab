@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useLocale } from '@/lib/i18n/locale';
 
 export interface ParsedItem {
@@ -46,12 +46,11 @@ export interface ParsedRecord {
     supplier: string;
   };
   // Related party fields
-  relatedPartyDetails?: {
-    party: string;
-    relationship: string;
-    amount: number;
-    isArmsLength: boolean;
-  };
+  relatedPartyDetails?: { party: string; relationship: string; amount: number; isArmsLength: boolean };
+  relationship?: string;
+  transactionType?: string;
+  amount?: number;
+  isArmsLength?: boolean;
   currency?: string;
   exchangeRate?: number;
   amountInAED?: number;
@@ -94,6 +93,7 @@ export default function RecordCard({
 }: RecordCardProps) {
   const { t, locale } = useLocale();
   const [editRecord, setEditRecord] = useState<ParsedRecord>(record);
+  useEffect(() => setEditRecord(record), [record]);
 
   const getIconAndLabel = () => {
     switch (record.type) {
@@ -145,8 +145,8 @@ export default function RecordCard({
             </span>
           )}
           {record.exchangeRate && record.currency && record.currency !== 'AED' && (
-            <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-900/40 text-emerald-300 border border-emerald-700/60" title="CBUAE Official Rate">
-              CBUAE: 1 {record.currency} = {record.exchangeRate} AED
+            <span className="px-2 py-0.5 text-xs rounded-full bg-emerald-900/40 text-emerald-300 border border-emerald-700/60" title="Exchange rate used for this transaction">
+              Rate: 1 {record.currency} = {record.exchangeRate} AED
             </span>
           )}
           {record.reverseCharge && (
@@ -244,7 +244,10 @@ export default function RecordCard({
         {record.type === 'relatedParty' && (
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div><span className="text-[var(--text-muted)] block">Party</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{partyDisplayName}</span></div>
-            <div><span className="text-[var(--text-muted)] block">Relationship</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.relatedPartyDetails?.relationship || 'Related Entity'}</span></div>
+            <div><span className="text-[var(--text-muted)] block">Relationship</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.relationship || record.relatedPartyDetails?.relationship || 'Related Entity'}</span></div>
+            <div><span className="text-[var(--text-muted)] block">Transaction</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.transactionType || 'Other'}</span></div>
+            <div><span className="text-[var(--text-muted)] block">Amount</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.amount ?? record.relatedPartyDetails?.amount ?? 0, record.currency)}</span></div>
+            <div><span className="text-[var(--text-muted)] block">Arms-length</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{(record.isArmsLength ?? record.relatedPartyDetails?.isArmsLength ?? true) ? 'Yes' : 'No'}</span></div>
           </div>
         )}
       </div>

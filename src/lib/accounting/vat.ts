@@ -91,18 +91,27 @@ export function buildVatReturn201(
 
   const box7TotalOutputVat = box1aVat + box2aVat
 
-  // Process input (purchases)
+  // Process input (purchases). Imports must not be reported as ordinary
+  // domestic expenses: their taxable value belongs in Box 5 and recoverable
+  // import VAT belongs in Box 9 (or Box 10 for reverse-charge imports).
+  let box5Amount = 0
   let box8InputVatExpenses = 0
   let box10InputVatReverseCharge = 0
 
   for (const item of purchaseItems) {
+    if (item.isImport) {
+      box5Amount += item.subtotal
+      if (item.isReverseCharge) {
+        box10InputVatReverseCharge += item.subtotal * VAT_RATE
+      }
+      continue
+    }
     if (item.isReverseCharge) {
-      // Recoverable reverse-charge input VAT
       box10InputVatReverseCharge += item.subtotal * VAT_RATE
     } else if (item.vatCategory === 'standard') {
       box8InputVatExpenses += item.subtotal * VAT_RATE
     }
-    // zero/exempt purchases → no input VAT to recover
+    // zero/exempt purchases have no recoverable input VAT
   }
 
   const box9InputVatImports = importVatPaidAtCustoms
@@ -113,7 +122,7 @@ export function buildVatReturn201(
     box1Amount, box1aVat,
     box2Amount, box2aVat,
     box3Amount, box4Amount,
-    box5Amount: 0, box5aVat: box9InputVatImports,
+    box5Amount, box5aVat: box9InputVatImports,
     box6Adjustment: 0,
     box7TotalOutputVat,
     box8InputVatExpenses,
@@ -169,9 +178,10 @@ export function getVATThresholdStatus(revenue12Months: number): {
 export function getNextVatDeadline(periodEndDate: Date): Date {
   const deadline = new Date(periodEndDate)
   deadline.setDate(deadline.getDate() + 28)
-  // If 28th lands on Fri/Sat (UAE weekend), move to next Sunday
+  // UAE weekend is Saturday/Sunday. Move a deadline landing on either
+  // non-working day to Monday, not Sunday.
   const day = deadline.getDay()
-  if (day === 5) deadline.setDate(deadline.getDate() + 2) // Friday → Sunday
-  if (day === 6) deadline.setDate(deadline.getDate() + 1) // Saturday → Sunday
+  if (day === 6) deadline.setDate(deadline.getDate() + 2) // Saturday → Monday
+  if (day === 0) deadline.setDate(deadline.getDate() + 1) // Sunday → Monday
   return deadline
 }

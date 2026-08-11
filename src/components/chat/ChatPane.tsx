@@ -23,7 +23,9 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
   const calcTotals = (items: ParsedItem[]): RecordTotals => {
     let subtotal = 0, vatTotal = 0, discountTotal = 0;
     for (const item of items) {
-      const gross = (item.qty || 1) * (item.price || 0);
+      // A qty of 0 is legitimate; `||` would silently promote it to 1.
+      const qty = Number.isFinite(item.qty) ? Number(item.qty) : 1;
+      const gross = qty * (item.price || 0);
       const disc = item.discount || 0;
       const net = Math.max(0, gross - disc);
       subtotal += net;
@@ -34,7 +36,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
     return { subtotal, vat: vatTotal, discount: discountTotal, total: subtotal + vatTotal };
   };
 
-  const handleSend = async (content: string) => {
+  const handleSend = async (content: string, fileData?: { mimeType: string; data: string }) => {
     if (!content.trim()) return;
 
     const userMsgId = Date.now().toString();
@@ -49,12 +51,17 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
     setLoading(true);
 
     try {
-      const chatHistory = messages.map(m => ({ role: m.role, content: m.content }));
+      // Gemini only accepts 'user' | 'model'. Sending 'assistant' returns a
+      // 400 and kills every follow-up turn in the conversation.
+      const chatHistory = messages.map(m => ({
+        role: (m.role === 'assistant' ? 'model' : 'user') as 'user' | 'model',
+        content: m.content,
+      }));
       
       const response = await fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: content, orgId, chatHistory })
+        body: JSON.stringify({ message: content, orgId, chatHistory, fileData })
       });
       
       const resJson = await response.json();
@@ -63,7 +70,8 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
       }
 
       const parsedRecord: ParsedRecord | undefined = resJson.data;
-      const isTransaction = parsedRecord && ['sale', 'purchase', 'employee', 'asset', 'related_party'].includes(parsedRecord.type);
+      // Must match the Gemini schema exactly — it emits camelCase 'relatedParty'.
+      const isTransaction = parsedRecord && ['sale', 'purchase', 'employee', 'asset', 'relatedParty'].includes(parsedRecord.type);
 
       let totals: RecordTotals | undefined;
       if (isTransaction && parsedRecord.items) {
@@ -111,7 +119,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
     try {
       const res = await fetch('/api/records/confirm', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': `${orgId}:${messageId}` },
         body: JSON.stringify({
           orgId,
           record: msg.record,
@@ -199,7 +207,22 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
   };
 
   const handleFileUpload = (file: File) => {
-    handleSend(`Uploaded file: ${file.name}`);
+    if (file.size > 6 * 1024 * 1024) {
+      handleSend(`Attachment ${file.name} is too large. Please upload a file under 6 MB.`)
+      return
+    }
+    const reader = new FileReader()
+    reader.onload = () => {
+      const result = String(reader.result || '')
+      const comma = result.indexOf(',')
+      const data = comma >= 0 ? result.slice(comma + 1) : result
+      handleSend(`Please read and extract the accounting information from ${file.name}.`, {
+        mimeType: file.type || 'application/octet-stream',
+        data,
+      })
+    }
+    reader.onerror = () => handleSend(`I could not read ${file.name}. Please try again.`)
+    reader.readAsDataURL(file)
   };
 
   return (
@@ -241,6 +264,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
         onEditRecord={handleEditRecord}
         onSaveEdit={handleSaveEdit}
         onCancelEdit={handleCancelEdit}
+        onSuggestion={handleSend}
       />
 
       {/* Input Area */}

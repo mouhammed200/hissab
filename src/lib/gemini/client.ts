@@ -11,6 +11,7 @@ export interface GeminiRequest {
   userMessage: string
   contextData?: Record<string, unknown>
   chatHistory?: Array<{ role: 'user' | 'model'; content: string }>
+  fileData?: { mimeType: string; data: string }
 }
 
 export interface GeminiResponse {
@@ -66,7 +67,7 @@ export async function parseTransaction(req: GeminiRequest): Promise<GeminiRespon
     const systemPrompt = getSystemPrompt()
 
     // Build contents array with chat history
-    const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text: string }> }> = []
+    const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> }> = []
 
     // Add previous conversation turns if any
     if (req.chatHistory?.length) {
@@ -84,10 +85,9 @@ export async function parseTransaction(req: GeminiRequest): Promise<GeminiRespon
       userText += `\n\n[FINANCIAL CONTEXT — use this data to answer queries]\n${JSON.stringify(req.contextData, null, 2)}`
     }
 
-    contents.push({
-      role: 'user',
-      parts: [{ text: userText }],
-    })
+    const userParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [{ text: userText }]
+    if (req.fileData) userParts.push({ inlineData: req.fileData })
+    contents.push({ role: 'user', parts: userParts })
 
     const response = await withRetry((selectedModel) =>
       ai.models.generateContent({

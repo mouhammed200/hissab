@@ -57,21 +57,12 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
           .single()
 
         if (orgErr || !newOrg) {
-          // If insert fails (e.g. RLS restrict), try fetching any existing public org
-          const { data: fallbackOrgs } = await supabase.from('organizations').select('*').limit(1)
-          if (fallbackOrgs && fallbackOrgs.length > 0) {
-            const fallbackOrg = fallbackOrgs[0]
-            const { data: newMem } = await supabase
-              .from('org_members')
-              .insert({ org_id: fallbackOrg.id, user_id: user.id, role: 'owner' })
-              .select()
-              .single()
-            setOrg(fallbackOrg)
-            setMembership(newMem || { id: 'fallback', org_id: fallbackOrg.id, user_id: user.id, role: 'owner', created_at: new Date().toISOString() })
-            setLoading(false)
-            return
-          }
-          throw new Error(orgErr?.message || 'Could not initialize workspace organization')
+          // SECURITY: never fall back to an existing organization here. Attaching a
+          // brand new user to whatever org happens to be readable would hand them
+          // owner rights over another company's financial data.
+          throw new Error(
+            orgErr?.message || 'Could not create your workspace. Please contact support.'
+          )
         }
 
         // Insert Member

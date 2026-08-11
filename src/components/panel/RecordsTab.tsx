@@ -27,37 +27,55 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
       const supabase = createClient()
       
       try {
-        const { data: invoices } = await supabase.from('invoices').select('*').eq('org_id', orgId)
-        const { data: employees } = await supabase.from('employees').select('*').eq('org_id', orgId)
-        
+        // There is no invoices.party_name column — the counterparty lives in contacts.
+        const { data: invoices } = await supabase
+          .from('invoices')
+          .select('id, invoice_type, invoice_number, status, issue_date, created_at, total_amount, contacts(name)')
+          .eq('org_id', orgId)
+        const { data: employees } = await supabase
+          .from('employees')
+          .select('id, full_name, position, hire_date, basic_salary, allowances, created_at')
+          .eq('org_id', orgId)
+
+        const dateLocale = locale === 'ar' ? 'ar-AE' : 'en-AE'
+        const fmtDate = (value?: string | null) =>
+          value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString(dateLocale) : ''
+
         const unified = []
-        
+
         if (invoices) {
           for (const inv of invoices) {
+            const isSale = inv.invoice_type === 'sales_invoice'
+            const contact = Array.isArray(inv.contacts) ? inv.contacts[0] : inv.contacts
+            const partyName =
+              contact?.name || inv.invoice_number || (locale === 'ar' ? 'طرف غير معروف' : 'Unknown Party')
+            const recordDate = inv.issue_date || inv.created_at
+
             unified.push({
               id: inv.id,
-              type: inv.type === 'SALE' ? 'Sale' : 'Purchase',
-              icon: inv.type === 'SALE' ? '📈' : '🛒',
-              title: inv.party_name || (locale === 'ar' ? 'طرف غير معروف' : 'Unknown Party'),
-              subtitle: `${inv.status} • ${new Date(inv.date || inv.created_at).toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-AE')}`,
+              type: isSale ? 'Sale' : 'Purchase',
+              icon: isSale ? '📈' : '🛒',
+              title: partyName,
+              subtitle: `${inv.status} • ${fmtDate(recordDate)}`,
               amount: Number(inv.total_amount) || 0,
-              color: inv.type === 'SALE' ? 'text-emerald-400' : 'text-amber-400',
-              rawDate: new Date(inv.date || inv.created_at)
+              color: isSale ? 'text-emerald-400' : 'text-amber-400',
+              rawDate: new Date(`${String(recordDate).slice(0, 10)}T00:00:00`)
             })
           }
         }
-        
+
         if (employees) {
           for (const emp of employees) {
+            // Columns are full_name / basic_salary / hire_date
             unified.push({
               id: emp.id,
               type: 'Employee',
               icon: '👤',
-              title: `${emp.first_name || ''} ${emp.last_name || ''}`.trim() || (locale === 'ar' ? 'موظف' : 'Employee'),
-              subtitle: `${emp.department || 'General'} • ${new Date(emp.join_date || emp.created_at).toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-AE')}`,
-              amount: Number(emp.base_salary) || 0,
+              title: emp.full_name || (locale === 'ar' ? 'موظف' : 'Employee'),
+              subtitle: `${emp.position || (locale === 'ar' ? 'عام' : 'General')} • ${fmtDate(emp.hire_date || emp.created_at)}`,
+              amount: Number(emp.basic_salary) || 0,
               color: 'text-blue-400',
-              rawDate: new Date(emp.created_at)
+              rawDate: new Date(`${String(emp.hire_date || emp.created_at).slice(0, 10)}T00:00:00`)
             })
           }
         }

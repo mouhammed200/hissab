@@ -55,52 +55,53 @@ const STATIC_FALLBACK_RATES: Record<string, number> = {
  */
 export async function getCbuaeExchangeRate(
   currencyCode: string,
-  dateString?: string
+  dateString?: string,
+  suppliedHistoricalRate?: number,
 ): Promise<ExchangeRateRecord> {
   const code = currencyCode.toUpperCase()
   const date = dateString || new Date().toISOString().split('T')[0]
+  const today = new Date().toISOString().split('T')[0]
 
-  // 1. Fixed UAE Central Bank Pegs
   if (PEGGED_RATES[code]) {
-    return {
-      currencyCode: code,
-      rateToAed: PEGGED_RATES[code],
-      date,
-      source: 'CBUAE_PEGGED',
-    }
+    return { currencyCode: code, rateToAed: PEGGED_RATES[code], date, source: 'CBUAE_PEGGED' }
   }
 
-  // 2. Fetch live/historical rate from CBUAE aligned exchange rate service
+  // A latest-rate endpoint cannot satisfy Article 69 for a past supply date.
+  // Accept a rate only when the caller has obtained the date-specific official
+  // CBUAE rate, otherwise fail closed instead of silently misdating the invoice.
+  if (date !== today) {
+    if (suppliedHistoricalRate && suppliedHistoricalRate > 0) {
+      return { currencyCode: code, rateToAed: suppliedHistoricalRate, date, source: 'CBUAE' }
+    }
+    throw new Error(
+      `No date-specific CBUAE rate supplied for ${code} on ${date}. ` +
+      'Provide the official CBUAE rate before posting a foreign-currency invoice.'
+    )
+  }
+
+  // This endpoint is used only for a same-day indicative rate. It is explicitly
+  // labelled FALLBACK, never CBUAE, because it is not an official source.
   try {
-    const res = await fetch(`https://open.er-api.com/v6/latest/AED`, {
-      next: { revalidate: 3600 }, // Cache for 1 hour
-    })
+    const res = await fetch(`https://open.er-api.com/v6/latest/AED`, { next: { revalidate: 3600 } })
     if (res.ok) {
       const data = await res.json()
       const rateFromAed = data.rates?.[code]
       if (rateFromAed && rateFromAed > 0) {
-        // Rates are relative to AED (1 AED = X Currency) -> convert to 1 Currency = Y AED
-        const rateToAed = Number((1 / rateFromAed).toFixed(6))
         return {
           currencyCode: code,
-          rateToAed,
+          rateToAed: Number((1 / rateFromAed).toFixed(6)),
           date,
-          source: 'CBUAE',
+          source: 'FALLBACK',
         }
       }
     }
   } catch (err) {
-    console.warn('Failed to fetch dynamic exchange rate, using fallback:', err)
+    console.warn('Failed to fetch indicative exchange rate:', err)
   }
 
-  // 3. Fallback static rate
-  const fallbackRate = STATIC_FALLBACK_RATES[code] || 1.0
-  return {
-    currencyCode: code,
-    rateToAed: fallbackRate,
-    date,
-    source: 'FALLBACK',
-  }
+  const fallbackRate = STATIC_FALLBACK_RATES[code]
+  if (!fallbackRate) throw new Error(`No exchange rate available for ${code}`)
+  return { currencyCode: code, rateToAed: fallbackRate, date, source: 'FALLBACK' }
 }
 
 /**
@@ -111,10 +112,11 @@ export async function convertForeignInvoiceToAed(
   foreignAmount: number,
   currencyCode: string,
   vatCategory: 'standard' | 'zero' | 'exempt' = 'standard',
-  dateString?: string
+  dateString?: string,
+  suppliedHistoricalRate?: number,
 ): Promise<FxConversionResult> {
   const code = currencyCode.toUpperCase()
-  const rateRecord = await getCbuaeExchangeRate(code, dateString)
+  const rateRecord = await getCbuaeExchangeRate(code, dateString, suppliedHistoricalRate)
   const exchangeRate = rateRecord.rateToAed
 
   const amountInAed = Number((foreignAmount * exchangeRate).toFixed(2))
@@ -123,7 +125,9 @@ export async function convertForeignInvoiceToAed(
 
   const ftaCompliantNote = code === 'AED'
     ? 'Standard AED Invoice'
-    : `FTA VAT Rule: Converted using CBUAE rate 1 ${code} = ${exchangeRate} AED. VAT Payable: ${vatInAed.toFixed(2)} AED.`
+    : rateRecord.source === 'CBUAE' || rateRecord.source === 'CBUAE_PEGGED'
+      ? `FTA VAT Rule: Converted using official CBUAE rate 1 ${code} = ${exchangeRate} AED. VAT Payable: ${vatInAed.toFixed(2)} AED.`
+      : `Indicative conversion only: 1 ${code} = ${exchangeRate} AED. Obtain and record the official CBUAE rate before posting.`
 
   return {
     foreignAmount,
