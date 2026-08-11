@@ -34,3 +34,14 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
 
 Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+
+
+## Periodic depreciation
+
+Apply migrations through `006_periodic_depreciation_runner.sql`, then schedule
+`GET /api/cron/depreciation` with `Authorization: Bearer $CRON_SECRET`. A daily
+call is safe and recommended: it generates missing monthly schedule rows, posts
+only due periods, catches up missed months, and is idempotent by asset and period.
+The endpoint processes every organization and returns per-organization results;
+failed organizations return HTTP 207 so the scheduler can alert without hiding
+partial failures.

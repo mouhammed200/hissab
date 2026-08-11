@@ -3,7 +3,8 @@
 import React, { useState } from 'react';
 import MessageList, { ChatMessage } from './MessageList';
 import InputBar from './InputBar';
-import { ParsedRecord, RecordTotals, ParsedItem } from './RecordCard';
+import { ParsedRecord, RecordTotals } from './RecordCard';
+import { computeTotals, isTransaction, normalizeRecord, validateRecord } from '@/lib/records/normalize';
 import LocaleSwitcher from '@/components/shared/LocaleSwitcher';
 import { useLocale } from '@/lib/i18n/locale';
 
@@ -20,21 +21,6 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const calcTotals = (items: ParsedItem[]): RecordTotals => {
-    let subtotal = 0, vatTotal = 0, discountTotal = 0;
-    for (const item of items) {
-      // A qty of 0 is legitimate; `||` would silently promote it to 1.
-      const qty = Number.isFinite(item.qty) ? Number(item.qty) : 1;
-      const gross = qty * (item.price || 0);
-      const disc = item.discount || 0;
-      const net = Math.max(0, gross - disc);
-      subtotal += net;
-      discountTotal += disc;
-      const rate = item.category === 'standard' ? 0.05 : 0;
-      vatTotal += net * rate;
-    }
-    return { subtotal, vat: vatTotal, discount: discountTotal, total: subtotal + vatTotal };
-  };
 
   const handleSend = async (content: string, fileData?: { mimeType: string; data: string }) => {
     if (!content.trim()) return;
@@ -69,25 +55,27 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
         throw new Error(resJson.error || 'Failed to process message');
       }
 
-      const parsedRecord: ParsedRecord | undefined = resJson.data;
-      // Must match the Gemini schema exactly — it emits camelCase 'relatedParty'.
-      const isTransaction = parsedRecord && ['sale', 'purchase', 'employee', 'asset', 'relatedParty'].includes(parsedRecord.type);
+      // The API already normalizes and validates. Re-running the normalizer here
+      // is cheap and keeps the UI correct even if the response is replayed from
+      // history or an older client version is talking to a newer API.
+      const parsedRecord: ParsedRecord | undefined = resJson.data ? normalizeRecord(resJson.data) : undefined;
+      const transaction = Boolean(parsedRecord && isTransaction(parsedRecord.type));
 
-      let totals: RecordTotals | undefined;
-      if (isTransaction && parsedRecord.items) {
-        totals = calcTotals(parsedRecord.items);
-      }
+      const validation = resJson.validation ?? (parsedRecord ? validateRecord(parsedRecord) : undefined);
+      const totals: RecordTotals | undefined =
+        transaction && parsedRecord ? computeTotals(parsedRecord) : undefined;
 
-      // Extract Gemini natural text answer
-      const textAnswer = resJson.text || (parsedRecord as any)?.queryResponse || (parsedRecord as any)?.explanation || (parsedRecord as any)?.notes || '';
+      const textAnswer = resJson.text || parsedRecord?.queryResponse || parsedRecord?.notes || '';
 
       const assistantMsg: ChatMessage = {
         id: (Date.now() + 1).toString(),
         role: 'assistant',
-        content: textAnswer || (isTransaction ? (locale === 'ar' ? 'تم استخراج تفاصيل المعاملة. يرجى المراجعة والتأكيد:' : 'Transaction details extracted. Please review and confirm:') : ''),
-        record: isTransaction ? parsedRecord : undefined,
-        recordTotals: isTransaction ? totals : undefined,
-        recordStatus: isTransaction ? 'pending' : undefined,
+        content: textAnswer || (transaction ? (locale === 'ar' ? 'تم استخراج تفاصيل المعاملة. يرجى المراجعة والتأكيد:' : 'Transaction details extracted. Please review and confirm:') : ''),
+        record: transaction ? parsedRecord : undefined,
+        recordTotals: transaction ? totals : undefined,
+        recordStatus: transaction ? 'pending' : undefined,
+        recordErrors: transaction ? validation?.errors ?? [] : undefined,
+        recordWarnings: transaction ? validation?.warnings ?? [] : undefined,
         timestamp: new Date()
       };
 
@@ -112,8 +100,17 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
     const msg = messages.find(m => m.id === messageId);
     if (!msg?.record) return;
 
+    // Never let the user confirm a record the server will reject.
+    const preflight = validateRecord(msg.record);
+    if (!preflight.valid) {
+      setMessages(prev => prev.map(m =>
+        m.id === messageId ? { ...m, recordErrors: preflight.errors, recordStatus: 'pending' } : m
+      ));
+      return;
+    }
+
     setMessages(prev => prev.map(m =>
-      m.id === messageId ? { ...m, recordStatus: 'confirmed' } : m
+      m.id === messageId ? { ...m, recordStatus: 'confirmed', recordErrors: [] } : m
     ));
 
     try {
@@ -126,22 +123,45 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
           totals: msg.recordTotals,
         }),
       });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        console.error('Confirm failed:', data.error);
+        // The old code logged this to the console and quietly flipped the card
+        // back to pending, so a rejected posting looked like a dead button.
+        const reasons: string[] = Array.isArray(data.errors) && data.errors.length
+          ? data.errors
+          : [data.error || (locale === 'ar'
+              ? 'تعذر ترحيل السجل. يرجى المحاولة مجدداً.'
+              : 'The record could not be posted. Please try again.')];
+
         setMessages(prev => prev.map(m =>
-          m.id === messageId ? { ...m, recordStatus: 'pending' } : m
+          m.id === messageId
+            ? { ...m, recordStatus: 'pending', recordErrors: reasons }
+            : m
         ));
         return;
       }
+
       setMessages(prev => prev.map(m =>
-        m.id === messageId ? { ...m, dbRecordId: data.recordId } : m
+        m.id === messageId
+          ? { ...m, dbRecordId: data.recordId, recordErrors: [], recordWarnings: data.warnings ?? m.recordWarnings }
+          : m
       ));
+      onRecordConfirmed?.();
     } catch (err) {
       console.error('Confirm error:', err);
+      setMessages(prev => prev.map(m =>
+        m.id === messageId
+          ? {
+              ...m,
+              recordStatus: 'pending',
+              recordErrors: [locale === 'ar'
+                ? 'تعذر الاتصال بالخادم. لم يتم حفظ السجل.'
+                : 'Could not reach the server. Nothing was saved.'],
+            }
+          : m
+      ));
     }
-
-    onRecordConfirmed?.();
   };
 
   const handleVoidRecord = async (messageId: string) => {
@@ -186,14 +206,17 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
   const handleSaveEdit = (messageId: string, updatedRecord: ParsedRecord) => {
     setMessages(prev => prev.map(msg => {
       if (msg.id === messageId) {
-        const newTotals = (updatedRecord.type === 'sale' || updatedRecord.type === 'purchase') && updatedRecord.items 
-          ? calcTotals(updatedRecord.items) 
-          : undefined;
-        return { 
-          ...msg, 
-          record: updatedRecord, 
-          recordTotals: newTotals, 
-          recordStatus: 'pending' 
+        // Re-run the full normalizer on edits so a manually edited record is
+        // held to exactly the same contract as a freshly parsed one.
+        const normalized = normalizeRecord(updatedRecord);
+        const revalidated = validateRecord(normalized);
+        return {
+          ...msg,
+          record: normalized,
+          recordTotals: isTransaction(normalized.type) ? computeTotals(normalized) : undefined,
+          recordErrors: revalidated.errors,
+          recordWarnings: revalidated.warnings,
+          recordStatus: 'pending'
         };
       }
       return msg;

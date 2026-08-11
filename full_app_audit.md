@@ -1,3 +1,10 @@
+> **STATUS: PARTIALLY SUPERSEDED (see FIX_REPORT.md).**
+> Items H1, H2, L6 and M12 were already fixed in the source when this document
+> was last circulated. The record-extraction defects (empty sale cards, zero-value
+> postings, lost nested fields, acquisition-time depreciation, unused amountInAED,
+> retired Gemini model) are fixed in FIX_REPORT.md. Remaining items in this file
+> have not been re-verified.
+
 # 🔍 Hissab Full Application Audit Report
 
 > **Audited**: 40+ source files across Frontend, Panel, API Routes, Accounting Engine, Auth, i18n, and Infrastructure.

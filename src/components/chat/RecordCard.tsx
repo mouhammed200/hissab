@@ -2,74 +2,22 @@
 
 import React, { useEffect, useState } from 'react';
 import { useLocale } from '@/lib/i18n/locale';
+import type { NormalizedItem, NormalizedRecord, RecordTotals } from '@/lib/records/normalize';
 
-export interface ParsedItem {
-  description: string;
-  qty: number;
-  price: number;
-  discount?: number;
-  category?: 'standard' | 'zero' | 'exempt' | 'outOfScope';
-}
-
-export interface ParsedRecord {
-  type: 'sale' | 'purchase' | 'employee' | 'asset' | 'relatedParty' | 'query' | 'action';
-  party?: string;
-  partyName?: string;
-  date?: string;
-  items?: ParsedItem[];
-  // Employee fields (root or nested)
-  name?: string;
-  position?: string;
-  basicSalary?: number;
-  allowances?: number;
-  hireDate?: string;
-  contractType?: string;
-  employeeDetails?: {
-    name: string;
-    position: string;
-    basicSalary: number;
-    allowances: number;
-    hireDate: string;
-    contractType: string;
-  };
-  // Asset fields (root or nested)
-  assetName?: string;
-  purchaseCost?: number;
-  salvageValue?: number;
-  usefulLifeYears?: number;
-  supplier?: string;
-  assetDetails?: {
-    name: string;
-    cost: number;
-    salvageValue: number;
-    usefulLife: number;
-    supplier: string;
-  };
-  // Related party fields
-  relatedPartyDetails?: { party: string; relationship: string; amount: number; isArmsLength: boolean };
-  relationship?: string;
-  transactionType?: string;
-  amount?: number;
-  isArmsLength?: boolean;
-  currency?: string;
-  exchangeRate?: number;
-  amountInAED?: number;
-  vatInAED?: number;
-  reverseCharge?: boolean;
-  vatCategory?: string;
-}
-
-export interface RecordTotals {
-  subtotal: number;
-  vat: number;
-  discount: number;
-  total: number;
-}
+// Record shape and totals are defined once, in the shared normalizer, so the
+// card can never disagree with what the posting route will actually write.
+export type ParsedItem = NormalizedItem
+export type ParsedRecord = NormalizedRecord
+export type { RecordTotals }
 
 interface RecordCardProps {
   record: ParsedRecord;
   totals?: RecordTotals;
   status: 'pending' | 'confirmed' | 'voided' | 'editing';
+  /** Blocking problems. Confirmation is disabled while any are present. */
+  errors?: string[];
+  /** Non-blocking notices, e.g. a rebuilt lump-sum line or a missing TRN. */
+  warnings?: string[];
   onConfirm: () => void;
   onVoid: () => void;
   onEdit: () => void;
@@ -85,6 +33,8 @@ export default function RecordCard({
   record,
   totals,
   status,
+  errors = [],
+  warnings = [],
   onConfirm,
   onVoid,
   onEdit,
@@ -110,15 +60,30 @@ export default function RecordCard({
   const isEditing = status === 'editing';
   const isVoided = status === 'voided';
   
-  const partyDisplayName = 
-    record.party || 
-    record.partyName || 
-    record.name || 
-    record.assetName || 
-    record.employeeDetails?.name || 
-    record.assetDetails?.name || 
-    record.relatedPartyDetails?.party || 
-    (locale === 'ar' ? 'عمومي' : 'General');
+  // The old fallback rendered a nameless sale as "General", which looked like a
+  // legitimate record. Missing counterparties are now called out as missing.
+  const missingPartyLabel =
+    record.type === 'sale'
+      ? locale === 'ar'
+        ? 'عميل غير محدد'
+        : 'Customer not specified'
+      : record.type === 'purchase'
+        ? locale === 'ar'
+          ? 'مورد غير محدد'
+          : 'Supplier not specified'
+        : locale === 'ar'
+          ? 'غير مسمى'
+          : 'Unnamed';
+
+  const partyDisplayName =
+    record.party ||
+    record.name ||
+    record.assetName ||
+    missingPartyLabel;
+
+  const isSaleOrPurchase = record.type === 'sale' || record.type === 'purchase';
+  const hasItems = Boolean(record.items && record.items.length > 0);
+  const blocking = errors.length > 0;
 
   const handleItemChange = (index: number, field: keyof ParsedItem, value: any) => {
     const newItems = [...(editRecord.items || [])];
@@ -149,17 +114,57 @@ export default function RecordCard({
               Rate: 1 {record.currency} = {record.exchangeRate} AED
             </span>
           )}
+          {record.subtype === 'lumpSum' && isSaleOrPurchase && (
+            <span className="px-2 py-0.5 text-xs rounded-full bg-amber-900/40 text-amber-300 border border-amber-700/60" title="Single lump-sum line, not itemised">
+              {locale === 'ar' ? 'مبلغ إجمالي' : 'Lump sum'}
+            </span>
+          )}
           {record.reverseCharge && (
             <span className="px-2 py-0.5 text-xs rounded-full bg-purple-900/40 text-purple-300 border border-purple-700/60">Reverse Charge</span>
           )}
-          {record.vatCategory && (
-            <span className="px-2 py-0.5 text-xs rounded-full bg-gray-800 text-gray-300 border border-gray-700">{record.vatCategory}</span>
+          {record.items.some((item) => item.category === 'zero') && (
+            <span className="px-2 py-0.5 text-xs rounded-full bg-gray-800 text-gray-300 border border-gray-700">Zero-rated</span>
+          )}
+          {record.items.some((item) => item.category === 'exempt') && (
+            <span className="px-2 py-0.5 text-xs rounded-full bg-gray-800 text-gray-300 border border-gray-700">Exempt</span>
           )}
         </div>
       </div>
 
       <div className="p-4">
-        {(record.type === 'sale' || record.type === 'purchase') && record.items && record.items.length > 0 && (
+        {/* Blocking problems. Shown instead of a silently empty card body. */}
+        {errors.length > 0 && (
+          <div className="mb-3 rounded-lg border border-red-500/40 bg-red-950/30 p-3 text-sm">
+            <div className="font-semibold text-red-300 mb-1">
+              {locale === 'ar' ? 'لا يمكن ترحيل هذا السجل' : 'This record cannot be posted'}
+            </div>
+            <ul className="list-disc list-inside space-y-0.5 text-red-200/90">
+              {errors.map((error, i) => <li key={i}>{error}</li>)}
+            </ul>
+          </div>
+        )}
+
+        {warnings.length > 0 && (
+          <div className="mb-3 rounded-lg border border-amber-500/40 bg-amber-950/25 p-3 text-xs">
+            <div className="font-semibold text-amber-300 mb-1">
+              {locale === 'ar' ? 'يرجى المراجعة' : 'Please review'}
+            </div>
+            <ul className="list-disc list-inside space-y-0.5 text-amber-200/90">
+              {warnings.map((warning, i) => <li key={i}>{warning}</li>)}
+            </ul>
+          </div>
+        )}
+
+        {/* A sale/purchase with no lines used to render an entirely blank body. */}
+        {isSaleOrPurchase && !hasItems && (
+          <div className="rounded-lg border border-dashed border-[var(--border-subtle)] p-4 text-center text-sm text-[var(--text-muted)]">
+            {locale === 'ar'
+              ? 'لم يتم استخراج أي بنود. اضغط على تعديل لإضافة الكمية والسعر.'
+              : 'No line items were extracted. Use Edit to add a quantity and price, or rephrase with the amount.'}
+          </div>
+        )}
+
+        {isSaleOrPurchase && hasItems && (
           <div className="w-full overflow-x-auto">
             <table className="w-full text-sm text-left">
               <thead className="text-[var(--text-secondary)] border-b border-[var(--border-subtle)]">
@@ -215,39 +220,39 @@ export default function RecordCard({
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
               <span className="text-[var(--text-muted)] block">Name</span>
-              <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.name || record.employeeDetails?.name || 'Employee'}</span>
+              <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.name || 'Employee'}</span>
             </div>
             <div>
               <span className="text-[var(--text-muted)] block">Position</span>
-              <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.position || record.employeeDetails?.position || 'Staff'}</span>
+              <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.position || 'Staff'}</span>
             </div>
             <div>
               <span className="text-[var(--text-muted)] block">Basic Salary</span>
-              <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.basicSalary || record.employeeDetails?.basicSalary || 0, record.currency)}</span>
+              <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.basicSalary ?? 0, record.currency)}</span>
             </div>
             <div>
               <span className="text-[var(--text-muted)] block">Allowances</span>
-              <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.allowances || record.employeeDetails?.allowances || 0, record.currency)}</span>
+              <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.allowances ?? 0, record.currency)}</span>
             </div>
           </div>
         )}
 
         {record.type === 'asset' && (
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><span className="text-[var(--text-muted)] block">Name</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.assetName || record.assetDetails?.name || 'Asset'}</span></div>
-            <div><span className="text-[var(--text-muted)] block">Supplier</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.supplier || record.assetDetails?.supplier || 'Supplier'}</span></div>
-            <div><span className="text-[var(--text-muted)] block">Cost</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.purchaseCost || record.assetDetails?.cost || 0, record.currency)}</span></div>
-            <div><span className="text-[var(--text-muted)] block">Useful Life</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.usefulLifeYears || record.assetDetails?.usefulLife || 5} years</span></div>
+            <div><span className="text-[var(--text-muted)] block">Name</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.assetName || 'Asset'}</span></div>
+            <div><span className="text-[var(--text-muted)] block">Supplier</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.supplier || 'Supplier'}</span></div>
+            <div><span className="text-[var(--text-muted)] block">Cost</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.purchaseCost ?? 0, record.currency)}</span></div>
+            <div><span className="text-[var(--text-muted)] block">Useful Life</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.usefulLifeYears ?? 5} years</span></div>
           </div>
         )}
 
         {record.type === 'relatedParty' && (
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div><span className="text-[var(--text-muted)] block">Party</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{partyDisplayName}</span></div>
-            <div><span className="text-[var(--text-muted)] block">Relationship</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.relationship || record.relatedPartyDetails?.relationship || 'Related Entity'}</span></div>
+            <div><span className="text-[var(--text-muted)] block">Relationship</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.relationship || 'Related Entity'}</span></div>
             <div><span className="text-[var(--text-muted)] block">Transaction</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.transactionType || 'Other'}</span></div>
-            <div><span className="text-[var(--text-muted)] block">Amount</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.amount ?? record.relatedPartyDetails?.amount ?? 0, record.currency)}</span></div>
-            <div><span className="text-[var(--text-muted)] block">Arms-length</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{(record.isArmsLength ?? record.relatedPartyDetails?.isArmsLength ?? true) ? 'Yes' : 'No'}</span></div>
+            <div><span className="text-[var(--text-muted)] block">Amount</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.amount ?? 0, record.currency)}</span></div>
+            <div><span className="text-[var(--text-muted)] block">Arms-length</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{(record.isArmsLength ?? true) ? 'Yes' : 'No'}</span></div>
           </div>
         )}
       </div>
@@ -262,7 +267,13 @@ export default function RecordCard({
               <div className="flex justify-between font-bold text-[var(--text-primary)] mt-1 pt-1 border-t border-[var(--border-subtle)]"><span>{t('record.total') || 'Total'}</span><span className={isVoided ? 'line-through' : ''}>{formatCurrency(totals.total, record.currency)}</span></div>
               
               {/* Mandatory FTA Foreign Currency Breakdown */}
-              {record.currency && record.currency !== 'AED' && record.amountInAED !== undefined && (
+              {record.currency !== 'AED' && record.amountInAED === undefined && (
+                <div className="mt-2 pt-2 border-t border-amber-500/20 bg-amber-950/20 p-2.5 rounded-lg text-xs text-amber-200">
+                  No CBUAE rate was applied to this {record.currency} record. It cannot be posted to the AED ledger until a rate is available.
+                </div>
+              )}
+
+              {record.currency !== 'AED' && record.amountInAED !== undefined && (
                 <div className="mt-2 pt-2 border-t border-emerald-500/20 bg-emerald-950/20 p-2.5 rounded-lg text-xs space-y-1">
                   <div className="font-semibold text-emerald-400 flex justify-between">
                     <span>🏛️ FTA Converted AED Breakdown</span>
@@ -287,7 +298,7 @@ export default function RecordCard({
              <div className="flex justify-between font-bold text-[var(--text-primary)] mt-1 pt-1 border-t border-[var(--border-subtle)]">
                <span>Total Package</span>
                <span className={isVoided ? 'line-through' : ''}>
-                 {formatCurrency(((record.basicSalary || record.employeeDetails?.basicSalary || 0) + (record.allowances || record.employeeDetails?.allowances || 0)), record.currency)}
+                 {formatCurrency(((record.basicSalary ?? 0) + (record.allowances ?? 0)), record.currency)}
                </span>
              </div>
           ) : null}
@@ -299,7 +310,18 @@ export default function RecordCard({
           <>
             <button onClick={onVoid} className="px-4 py-2 text-sm text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors">{t('record.cancel') || 'Dismiss'}</button>
             <button onClick={onEdit} className="px-4 py-2 text-sm text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors">{t('record.edit') || 'Edit'}</button>
-            <button onClick={onConfirm} className="px-4 py-2 text-sm btn-primary bg-[var(--accent)] text-white rounded-lg hover:bg-[var(--accent-hover)] transition-colors">{t('record.confirm') || 'Confirm'}</button>
+            <button
+              onClick={onConfirm}
+              disabled={blocking}
+              title={blocking ? errors[0] : undefined}
+              className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                blocking
+                  ? 'bg-[var(--bg-secondary)] text-[var(--text-muted)] border border-[var(--border-subtle)] cursor-not-allowed'
+                  : 'btn-primary bg-[var(--accent)] text-white hover:bg-[var(--accent-hover)]'
+              }`}
+            >
+              {t('record.confirm') || 'Confirm'}
+            </button>
           </>
         )}
         {status === 'confirmed' && (

@@ -1,64 +1,14 @@
-import type { VatCategory, Emirate, InvoiceType } from './database'
-
-// AI-parsed record from Gemini
-export interface ParsedItem {
-  description: string
-  qty: number
-  price: number
-  discount: number
-  category: 'standard' | 'zero' | 'exempt'
-  exciseCategory?: string
-}
-
-export interface ParsedRecord {
-  type: 'sale' | 'purchase' | 'employee' | 'asset' | 'relatedParty' | 'query' | 'action'
-  subtype?: 'itemized' | 'lumpSum'
-  party?: string
-  items?: ParsedItem[]
-  reverseCharge?: boolean
-  currency?: string
-  sellerTRN?: string
-  invoiceNumber?: string
-  emirate?: Emirate
-  // Employee fields
-  name?: string
-  position?: string
-  basicSalary?: number
-  allowances?: number
-  hireDate?: string
-  contractType?: 'limited' | 'unlimited'
-  terminationReason?: 'employer' | 'resignation' | 'expiry'
-  // Asset fields
-  assetName?: string
-  purchaseCost?: number
-  salvageValue?: number
-  usefulLifeYears?: number
-  supplier?: string
-  purchaseDate?: string
-  // Related party fields
-  relationship?: string
-  transactionType?: string
-  amount?: number
-  isArmsLength?: boolean
-  // Query response
-  queryResponse?: string
-  // Action
-  actionType?: string
-  actionPayload?: Record<string, unknown>
-  // Meta
-  notes?: string
-  date?: string
-  confidence?: number
-}
-
-// Calculated totals
-export interface RecordTotals {
-  subtotal: number
-  vat: number
-  discount: number
-  total: number
-  selfAccountedVAT?: number
-}
+// AI-parsed record types are defined once in src/lib/records/normalize.ts and
+// re-exported here. Keeping a second, drifting copy of ParsedRecord in this
+// file is what allowed the UI, the API and the ledger to disagree about which
+// fields a record actually has.
+export type {
+  NormalizedItem as ParsedItem,
+  NormalizedRecord as ParsedRecord,
+  RecordTotals,
+  RecordType,
+  ValidationResult,
+} from '@/lib/records/normalize'
 
 // Gratuity calculation result
 export interface GratuityResult {

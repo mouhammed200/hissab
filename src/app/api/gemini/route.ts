@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { parseTransaction } from '@/lib/gemini/client'
-import { verifyArithmetic } from '@/lib/accounting/validation'
 import { convertForeignInvoiceToAed } from '@/lib/accounting/fx'
+import { normalizeRecord, validateRecord, computeTotals } from '@/lib/records/normalize'
 
 const requestWindows = new Map<string, { startedAt: number; count: number }>()
 const MAX_REQUESTS_PER_MINUTE = 20
@@ -77,55 +77,60 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: result.error }, { status: 500 })
     }
 
-    const data = result.data!
-    
-    // Extract text response for chat
-    const textResponse = (data.queryResponse as string) || (data.explanation as string) || (data.notes as string) || ''
+    // 5. Normalize before anything else touches the payload. This flattens
+    //    nested detail objects, coerces numbers, rebuilds a lump-sum line when
+    //    the model returned a sale/purchase with no items, and re-derives every
+    //    line total. Replaces the old items-only arithmetic pass, which left
+    //    every other record type unvalidated.
+    const rawData = result.data ?? {}
+    const record = normalizeRecord(rawData)
 
-    // 5. Post-parse arithmetic verification for transaction records
-    if (data.items && Array.isArray(data.items)) {
-      const items = data.items as Array<{ qty: number; price: number; discount: number; lineTotal?: number }>
-      const check = verifyArithmetic(items)
-      if (!check.valid) {
-        for (const correction of check.corrections) {
-          items[correction.index].lineTotal = correction.expected
-        }
-        data._arithmeticCorrected = true
-      }
-    }
-
-    // 5b. Foreign Currency CBUAE Exchange Rate Enrichment
-    const currency = (data.currency as string) || 'AED'
-    if (currency !== 'AED') {
-      let subtotalForeign = 0
-      if (data.items && Array.isArray(data.items)) {
-        subtotalForeign = (data.items as Array<{ qty?: number; price?: number; discount?: number }>).reduce(
-          (sum, item) => sum + ((item.qty || 1) * (item.price || 0) - (item.discount || 0)),
-          0
-        )
-      } else if (typeof data.amount === 'number') {
-        subtotalForeign = data.amount
-      }
+    // 6. Foreign currency CBUAE enrichment, computed from normalized items so a
+    //    lump-sum record converts exactly like an itemized one.
+    if (record.currency !== 'AED') {
+      const totals = computeTotals(record)
+      const subtotalForeign = totals.subtotal > 0 ? totals.subtotal : (record.amount ?? 0)
 
       if (subtotalForeign > 0) {
-        const fxResult = await convertForeignInvoiceToAed(subtotalForeign, currency, 'standard', data.date as string)
-        data.exchangeRate = fxResult.exchangeRate
-        data.amountInAED = fxResult.amountInAed
-        data.vatInAED = fxResult.vatInAed
-        data.notes = data.notes ? `${data.notes} | ${fxResult.ftaCompliantNote}` : fxResult.ftaCompliantNote
+        try {
+          const hasStandardRated = record.items.some((item) => item.category === 'standard')
+          const fxResult = await convertForeignInvoiceToAed(
+            subtotalForeign,
+            record.currency,
+            hasStandardRated ? 'standard' : 'zero',
+            record.date,
+          )
+          record.exchangeRate = fxResult.exchangeRate
+          record.amountInAED = fxResult.amountInAed
+          record.vatInAED = fxResult.vatInAed
+          record.notes = record.notes ? `${record.notes} | ${fxResult.ftaCompliantNote}` : fxResult.ftaCompliantNote
+        } catch (fxError) {
+          // No rate is a blocking problem for the ledger, not a silent one.
+          // validateRecord turns the missing conversion into a hard error.
+          console.error('[gemini] FX conversion failed:', fxError)
+        }
       }
     }
 
-    // 6. Save conversation to DB
+    // 7. Validate per record type. Errors block confirmation in the UI;
+    //    warnings are shown on the card so the user can correct before posting.
+    const validation = validateRecord(record)
+
+    const textResponse =
+      record.queryResponse || (rawData.explanation as string | undefined) || record.notes || ''
+
+    // 8. Save conversation to DB
     await supabase.from('ai_conversations').insert([
       { org_id: orgId, user_id: user.id, role: 'user', content: message },
-      { org_id: orgId, user_id: user.id, role: 'assistant', content: JSON.stringify(data) },
+      { org_id: orgId, user_id: user.id, role: 'assistant', content: JSON.stringify(record) },
     ])
 
-    return NextResponse.json({ 
-      success: true, 
-      data,
-      text: textResponse 
+    return NextResponse.json({
+      success: true,
+      data: record,
+      totals: computeTotals(record),
+      validation,
+      text: textResponse,
     })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal server error'

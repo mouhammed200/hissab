@@ -11,6 +11,10 @@ export interface ChatMessage {
   record?: ParsedRecord;
   recordTotals?: RecordTotals;
   recordStatus?: 'pending' | 'confirmed' | 'voided' | 'editing';
+  /** Blocking validation problems returned by the normalizer or the API. */
+  recordErrors?: string[];
+  /** Non-blocking notices the user should read before confirming. */
+  recordWarnings?: string[];
   dbRecordId?: string;
   timestamp: Date;
 }
@@ -97,6 +101,8 @@ export default function MessageList({
                       record={msg.record}
                       totals={msg.recordTotals}
                       status={msg.recordStatus || 'pending'}
+                      errors={msg.recordErrors}
+                      warnings={msg.recordWarnings}
                       onConfirm={() => onConfirmRecord(msg.id)}
                       onVoid={() => onVoidRecord(msg.id)}
                       onEdit={() => onEditRecord(msg.id)}

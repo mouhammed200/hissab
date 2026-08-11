@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --experimental-strip-types --test tests/",
+    "test:smoke": "node tests/smoke.test.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.16.0",
