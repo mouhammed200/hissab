@@ -44,43 +44,33 @@ export function OrgProvider({ children }: { children: React.ReactNode }) {
       const mem = mems && mems.length > 0 ? mems[0] : null
 
       if (!mem) {
-        // 2. Newly signed-in user (created manually in Supabase Auth) — auto-create organization & member
+        // 2. Newly signed-in user (created manually in Supabase Auth) — bootstrap
+        //    a new organization. bootstrap_organization() is the only supported
+        //    way to create an org: it creates the org, owner membership, chart
+        //    of accounts, and audit log row in one atomic transaction, and is
+        //    idempotent (a user who already belongs somewhere gets that org
+        //    back instead of a duplicate). Direct inserts into `organizations`
+        //    are rejected by RLS as of migration 007.
         const meta = user.user_metadata || {}
         const emailPrefix = user.email ? user.email.split('@')[0] : 'My Business'
         const companyName = meta.company_name || meta.full_name || `${emailPrefix.charAt(0).toUpperCase() + emailPrefix.slice(1)} Trading`
 
-        // Insert Organization
-        const { data: newOrg, error: orgErr } = await supabase
-          .from('organizations')
-          .insert({ name: companyName, default_emirate: 'Dubai' })
-          .select()
-          .single()
+        const { data: bootstrapResult, error: bootstrapErr } = await supabase
+          .rpc('bootstrap_organization', { p_name: companyName, p_emirate: 'Dubai' })
 
-        if (orgErr || !newOrg) {
+        if (bootstrapErr || !bootstrapResult?.organization) {
           // SECURITY: never fall back to an existing organization here. Attaching a
           // brand new user to whatever org happens to be readable would hand them
           // owner rights over another company's financial data.
           throw new Error(
-            orgErr?.message || 'Could not create your workspace. Please contact support.'
+            bootstrapErr?.message || 'Could not create your workspace. Please contact support.'
           )
         }
 
-        // Insert Member
-        const { data: newMem } = await supabase
-          .from('org_members')
-          .insert({ org_id: newOrg.id, user_id: user.id, role: 'owner' })
-          .select()
-          .single()
-
-        // Seed chart of accounts (ignore RPC error if function doesn't exist yet)
-        try {
-          await supabase.rpc('seed_default_chart_of_accounts', { p_org_id: newOrg.id })
-        } catch {
-          // Silently ignore if RPC seed function is not installed in database
-        }
+        const newOrg = bootstrapResult.organization as Organization
 
         setOrg(newOrg)
-        setMembership(newMem || { id: newOrg.id, org_id: newOrg.id, user_id: user.id, role: 'owner', created_at: new Date().toISOString() })
+        setMembership({ id: newOrg.id, org_id: newOrg.id, user_id: user.id, role: 'owner', created_at: new Date().toISOString() })
       } else {
         // 3. Existing user with org membership — load organization details
         const { data: existingOrg, error: orgErr } = await supabase
