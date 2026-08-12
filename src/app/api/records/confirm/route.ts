@@ -74,8 +74,25 @@ export async function POST(req: Request) {
     const result = (data ?? {}) as Record<string, unknown>
     return NextResponse.json({ ...result, warnings: validation.warnings })
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : 'Atomic posting failed'
-    console.error('[confirm] posting failed:', message)
-    return NextResponse.json({ error: message }, { status: 500 })
+    // Supabase's rpc() throws a plain PostgrestError object, not an Error
+    // instance, so `error instanceof Error` was always false here and the
+    // real database message never reached the logs or the client — every
+    // posting failure surfaced as the generic "Atomic posting failed".
+    const message =
+      error instanceof Error
+        ? error.message
+        : typeof error === 'object' && error !== null && 'message' in error
+          ? String((error as { message: unknown }).message)
+          : 'Atomic posting failed'
+    const details =
+      typeof error === 'object' && error !== null && 'details' in error
+        ? String((error as { details: unknown }).details)
+        : undefined
+    const hint =
+      typeof error === 'object' && error !== null && 'hint' in error
+        ? String((error as { hint: unknown }).hint)
+        : undefined
+    console.error('[confirm] posting failed:', message, { details, hint })
+    return NextResponse.json({ error: message, details, hint }, { status: 500 })
   }
 }
