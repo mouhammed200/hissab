@@ -285,6 +285,17 @@ export function normalizeRecord(input: unknown): NormalizedRecord {
     confidence: toNumber(raw.confidence, undefined),
   }
 
+  // buildMonetaryFacts requires a rate date for every record type, not just
+  // sale/purchase. The UI previously only defaulted this for display
+  // (RecordCard falling back to today's date on screen) without writing it
+  // back onto the record, so a record with no extracted date would pass
+  // review looking fine and then be rejected by the server as
+  // "Date of supply is required for exchange-rate facts."
+  if (!record.date) {
+    record.date = new Date().toISOString().split('T')[0]
+    warnings.push(`No date was detected; defaulted to ${record.date}. Review before confirming.`)
+  }
+
   if (type === 'sale' || type === 'purchase') {
     if (items.length === 0) {
       const recovered = recoverLumpSumAmount(raw)
