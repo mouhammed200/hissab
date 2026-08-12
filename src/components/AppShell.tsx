@@ -63,7 +63,9 @@ function AppContent({ userId }: { userId: string }) {
   }
 
   return (
-    <div className="h-screen flex overflow-hidden bg-[--bg-primary]">
+    <>
+      <a className="skip-link" href="#main-content">{t('common.skipToContent')}</a>
+    <div id="main-content" className="h-screen flex overflow-hidden bg-[--bg-primary]">
       {/* 100% Dedicated View Focus */}
       {!showPanel ? (
         <div className="w-full flex flex-col h-full animate-fade-in">
@@ -86,6 +88,7 @@ function AppContent({ userId }: { userId: string }) {
         </div>
       )}
     </div>
+    </>
   )
 }
 

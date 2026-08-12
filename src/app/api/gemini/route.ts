@@ -3,9 +3,8 @@ import { createClient } from '@/lib/supabase/server'
 import { parseTransaction } from '@/lib/gemini/client'
 import { convertForeignInvoiceToAed } from '@/lib/accounting/fx'
 import { normalizeRecord, validateRecord, computeTotals } from '@/lib/records/normalize'
+import { consumeSharedRateLimit, safeRequestId } from '@/lib/ops/rate-limit'
 
-const requestWindows = new Map<string, { startedAt: number; count: number }>()
-const MAX_REQUESTS_PER_MINUTE = 20
 const MAX_MESSAGE_CHARS = 20_000
 
 export async function POST(request: NextRequest) {
@@ -18,6 +17,9 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    const requestId = safeRequestId(request)
+    const limited = await consumeSharedRateLimit(supabase, `${user.id}:${request.headers.get('x-forwarded-for') || 'unknown'}`, 20)
+    if (!limited.allowed) return NextResponse.json({ error: 'Rate limit exceeded. Try again shortly.', requestId }, { status: 429 })
     const body = await request.json()
     if (typeof body.message !== 'string' || body.message.length > MAX_MESSAGE_CHARS) {
       return NextResponse.json({ error: 'Message is missing or too large' }, { status: 413 })
@@ -33,12 +35,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Missing message or orgId' }, { status: 400 })
     }
 
-    const throttleKey = `${user.id}:${body.orgId}`
-    const now = Date.now()
-    const window = requestWindows.get(throttleKey)
-    if (!window || now - window.startedAt >= 60_000) requestWindows.set(throttleKey, { startedAt: now, count: 1 })
-    else if (window.count >= MAX_REQUESTS_PER_MINUTE) return NextResponse.json({ error: 'Rate limit exceeded. Try again shortly.' }, { status: 429 })
-    else window.count += 1
 
     // 2. Verify user has access to this org
     const { data: membership } = await supabase
@@ -85,6 +81,18 @@ export async function POST(request: NextRequest) {
     const rawData = result.data ?? {}
     const record = normalizeRecord(rawData)
 
+    // Product honesty gate: chat may extract transactions and answer queries.
+    // It must never advertise an action unless a real executor is wired.
+    if (record.type === 'action') {
+      return NextResponse.json({
+        success: true,
+        data: { type: 'query', queryResponse: 'This command is not available from chat. Use the reviewed control in Hissab instead.', currency: 'AED', items: [] },
+        totals: computeTotals({ items: [] }),
+        validation: { valid: true, errors: [], warnings: ['Chat actions are disabled until an executable command is available.'] },
+        text: 'This command is not available from chat. Use the reviewed control in Hissab instead.',
+      })
+    }
+
     // 6. Foreign currency CBUAE enrichment, computed from normalized items so a
     //    lump-sum record converts exactly like an itemized one.
     if (record.currency !== 'AED') {
@@ -107,7 +115,7 @@ export async function POST(request: NextRequest) {
         } catch (fxError) {
           // No rate is a blocking problem for the ledger, not a silent one.
           // validateRecord turns the missing conversion into a hard error.
-          console.error('[gemini] FX conversion failed:', fxError)
+          console.error('[gemini]', { requestId, event: 'fx_conversion_failed', error: fxError instanceof Error ? fxError.message : String(fxError) })
         }
       }
     }
@@ -126,6 +134,7 @@ export async function POST(request: NextRequest) {
     ])
 
     return NextResponse.json({
+      requestId,
       success: true,
       data: record,
       totals: computeTotals(record),

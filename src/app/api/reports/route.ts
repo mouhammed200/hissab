@@ -29,6 +29,12 @@ export async function GET(req: Request) {
     let rpcError: any = null
 
     switch (report) {
+      case 'snapshot': {
+        const snapshot = await supabase.rpc('fn_hissab_read_snapshot', { p_org_id: orgId, p_start: startDate || yearStart, p_end: endDate || today })
+        reportData = snapshot.data
+        rpcError = snapshot.error
+        break
+      }
       case 'trial_balance':
         const tbResult = await supabase.rpc('fn_trial_balance', { 
           p_org_id: orgId, 

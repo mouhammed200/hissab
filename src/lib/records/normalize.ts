@@ -54,6 +54,10 @@ export interface NormalizedRecord {
   sellerTRN?: string
   buyerTRN?: string
   invoiceNumber?: string
+  dateOfSupply?: string
+  exchangeRateDate?: string
+  exchangeRateSource?: string
+  sourceChannel?: string
   items: NormalizedItem[]
   name?: string
   position?: string

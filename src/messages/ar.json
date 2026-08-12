@@ -84,7 +84,9 @@
     "thisYear": "هذه السنة",
     "search": "بحث في السجلات...",
     "noRecords": "لا توجد سجلات بعد.",
-    "loading": "جارٍ تحميل السجلات..."
+    "loading": "جارٍ تحميل السجلات...",
+    "assets": "الأصول",
+    "relatedParties": "الأطراف ذات الصلة"
   },
   "reports": {
     "exportAll": "تصدير الكل إلى Excel",
@@ -148,6 +150,15 @@
     "loadingWorkspace": "جارٍ تحميل مساحة العمل...",
     "workspaceUnavailable": "مساحة العمل غير متاحة.",
     "aed": "درهم",
-    "currency": "AED"
+    "currency": "AED",
+    "skipToContent": "انتقل إلى المحتوى الرئيسي",
+    "close": "إغلاق",
+    "retry": "إعادة المحاولة",
+    "status": "الحالة"
+  },
+  "operations": {
+    "health": "حالة النظام",
+    "healthy": "يعمل بشكل سليم",
+    "degraded": "متدهور"
   }
 }

@@ -186,3 +186,10 @@ textarea::placeholder {
 .record-employee { border-left: 3px solid #3b82f6; }
 .record-asset { border-left: 3px solid #8b5cf6; }
 .record-relatedParty { border-left: 3px solid #ec4899; }
+
+/* Phase 06 accessibility baseline */
+:focus-visible { outline: 3px solid #34d399; outline-offset: 3px; }
+.skip-link { position: fixed; inset-inline-start: 1rem; top: -4rem; z-index: 1000; padding: .7rem 1rem; border-radius: .6rem; background: #10b981; color: #042f2e; font-weight: 800; }
+.skip-link:focus { top: 1rem; }
+button:disabled, input:disabled, select:disabled, textarea:disabled { cursor: not-allowed; opacity: .6; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; } }

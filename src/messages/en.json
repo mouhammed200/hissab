@@ -84,7 +84,9 @@
     "thisYear": "This Year",
     "search": "Search records...",
     "noRecords": "No records found.",
-    "loading": "Loading records..."
+    "loading": "Loading records...",
+    "assets": "Assets",
+    "relatedParties": "Related parties"
   },
   "reports": {
     "exportAll": "Export All to Excel",
@@ -148,6 +150,15 @@
     "loadingWorkspace": "Loading workspace...",
     "workspaceUnavailable": "Workspace unavailable.",
     "aed": "AED",
-    "currency": "AED"
+    "currency": "AED",
+    "skipToContent": "Skip to main content",
+    "close": "Close",
+    "retry": "Retry",
+    "status": "Status"
+  },
+  "operations": {
+    "health": "System status",
+    "healthy": "Healthy",
+    "degraded": "Degraded"
   }
 }

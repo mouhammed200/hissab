@@ -17,6 +17,8 @@ export async function GET(req: Request) {
 
     // Create workbook
     const wb = XLSX.utils.book_new()
+    const errors: string[] = []
+    const filters = { orgId, startDate, endDate, type, generatedAt: new Date().toISOString(), currencyBasis: 'AED ledger / source currency retained' }
 
     // Query builder helpers
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -38,7 +40,8 @@ export async function GET(req: Request) {
         `)
         .eq('org_id', orgId)
         
-      const { data: invoices } = await withDateFilter(invoicesQuery, 'issue_date')
+      const { data: invoices, error } = await withDateFilter(invoicesQuery, 'issue_date')
+      if (error) { errors.push(`invoices: ${error.message}`); throw error }
       
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const sales = (invoices || []).filter((i: any) => i.invoice_type === 'sales_invoice')
@@ -96,7 +99,8 @@ export async function GET(req: Request) {
     // 3. Employees
     if (!type || type === 'employee') {
       const empQuery = supabase.from('employees').select('*').eq('org_id', orgId)
-      const { data: employees } = await withDateFilter(empQuery, 'hire_date')
+      const { data: employees, error } = await withDateFilter(empQuery, 'hire_date')
+      if (error) { errors.push(`employees: ${error.message}`); throw error }
       
       const wsEmployees = XLSX.utils.json_to_sheet(employees || [])
       XLSX.utils.book_append_sheet(wb, wsEmployees, 'Employees')
@@ -105,7 +109,8 @@ export async function GET(req: Request) {
     // 4. Fixed Assets
     if (!type || type === 'asset') {
       const assetsQuery = supabase.from('fixed_assets').select('*').eq('org_id', orgId)
-      const { data: assets } = await withDateFilter(assetsQuery, 'purchase_date')
+      const { data: assets, error } = await withDateFilter(assetsQuery, 'purchase_date')
+      if (error) { errors.push(`assets: ${error.message}`); throw error }
       
       const wsAssets = XLSX.utils.json_to_sheet(assets || [])
       XLSX.utils.book_append_sheet(wb, wsAssets, 'Fixed Assets')
@@ -114,7 +119,8 @@ export async function GET(req: Request) {
     // 5. Related Party Transactions
     if (!type || type === 'relatedParty') {
       const rptQuery = supabase.from('related_party_transactions').select('*').eq('org_id', orgId)
-      const { data: rpts } = await withDateFilter(rptQuery, 'transaction_date')
+      const { data: rpts, error } = await withDateFilter(rptQuery, 'transaction_date')
+      if (error) { errors.push(`related parties: ${error.message}`); throw error }
       
       const wsRpts = XLSX.utils.json_to_sheet(rpts || [])
       XLSX.utils.book_append_sheet(wb, wsRpts, 'Related Party Txns')
@@ -132,7 +138,8 @@ export async function GET(req: Request) {
         `)
         .eq('org_id', orgId)
         
-      const { data: jes } = await withDateFilter(jeQuery, 'date')
+      const { data: jes, error } = await withDateFilter(jeQuery, 'date')
+      if (error) { errors.push(`journal: ${error.message}`); throw error }
       
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const formattedJes = (jes || []).flatMap((je: any) => 
@@ -153,14 +160,18 @@ export async function GET(req: Request) {
 
     // 7. Trial Balance
     if (!type) {
-      const { data: tb } = await supabase.rpc('fn_trial_balance', { 
+      const { data: tb, error } = await supabase.rpc('fn_trial_balance', { 
         p_org_id: orgId, 
         p_as_of_date: endDate || new Date().toISOString().split('T')[0] 
       })
       
+      if (error) { errors.push(`trial balance: ${error.message}`); throw error }
       const wsTb = XLSX.utils.json_to_sheet(tb || [])
       XLSX.utils.book_append_sheet(wb, wsTb, 'Trial Balance')
     }
+
+    const metaSheet = XLSX.utils.json_to_sheet([{ ...filters, rowCount: wb.SheetNames.reduce((n, name) => n + (wb.Sheets[name]['!ref'] ? XLSX.utils.decode_range(wb.Sheets[name]['!ref']).e.r : 0), 0), reconciliationStatus: 'posted-ledger sheets included' }])
+    XLSX.utils.book_append_sheet(wb, metaSheet, 'Export Manifest')
 
     // Generate buffer
     const buf = XLSX.write(wb, { type: 'buffer', bookType: 'xlsx' }) as Buffer

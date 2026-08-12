@@ -69,90 +69,27 @@ export default function DashboardTab({ orgId, refreshTrigger }: DashboardTabProp
       try {
         const { startDate, endDate } = getPeriodDates(period)
 
-        const [empRes, invDraftRes, assetRes, allInvoicesRes] = await Promise.all([
+        const [empRes, invDraftRes, assetRes, snapshotRes] = await Promise.all([
           supabase.from('employees').select('*', { count: 'exact', head: true }).eq('org_id', orgId).eq('status', 'active'),
           supabase.from('invoices').select('*', { count: 'exact', head: true }).eq('org_id', orgId).eq('status', 'draft'),
           supabase.from('fixed_assets').select('purchase_cost').eq('org_id', orgId),
-          // Real columns: invoice_type / issue_date / subtotal_amount (not type / date / subtotal)
-          supabase
-            .from('invoices')
-            .select('invoice_type, subtotal_amount, vat_amount, total_amount, issue_date, created_at, status')
-            .eq('org_id', orgId)
-            .not('status', 'in', '("void","draft")'),
+          supabase.rpc('fn_hissab_read_snapshot', { p_org_id: orgId, p_start: startDate, p_end: endDate }),
         ])
-
+        if (snapshotRes.error) throw snapshotRes.error
+        const snapshot = snapshotRes.data as { revenue: number; expenses: number; net_profit: number; vat_due: number; monthly: Array<{ month: string; revenue: number; expense: number }> }
         const assetsTotal = assetRes.data?.reduce((sum, a) => sum + (Number(a.purchase_cost) || 0), 0) || 0
-        const invoices = allInvoicesRes.data || []
-
-        // Calculate Totals filtered by selected period
-        let totalRevenue = 0, totalExpenses = 0, outputVat = 0, inputVat = 0
-        const monthAgg: Record<string, { revenue: number; expense: number; monthDate: Date }> = {}
-
-        for (const inv of invoices) {
-          const invDateStr = (inv.issue_date as string) || (inv.created_at as string)
-          if (!invDateStr) continue
-          // issue_date is a DATE string; slicing avoids the UTC shift that
-          // toISOString() introduces in UAE time (UTC+4).
-          const isoDate = String(invDateStr).slice(0, 10)
-          const [yearPart, monthPart] = isoDate.split('-')
-
-          const isSale = inv.invoice_type === 'sales_invoice'
-          const isPurchase = inv.invoice_type === 'purchase_invoice'
-          if (!isSale && !isPurchase) continue
-
-          // Revenue and expenses are net of VAT; VAT is not income.
-          const net = Number(inv.subtotal_amount) || 0
-          const vat = Number(inv.vat_amount) || 0
-
-          // Check period range
-          if (isoDate >= startDate && isoDate <= endDate) {
-            if (isSale) { totalRevenue += net; outputVat += vat }
-            if (isPurchase) { totalExpenses += net; inputVat += vat }
-          }
-
-          // Aggregate by month for chart
-          const monthKey = `${yearPart}-${monthPart}`
-          if (!monthAgg[monthKey]) {
-            monthAgg[monthKey] = {
-              revenue: 0,
-              expense: 0,
-              monthDate: new Date(Number(yearPart), Number(monthPart) - 1, 1),
-            }
-          }
-          if (isSale) monthAgg[monthKey].revenue += net
-          if (isPurchase) monthAgg[monthKey].expense += net
-        }
-
-        // Sort chart months chronologically
-        const sortedMonths = Object.keys(monthAgg).sort()
-        const formattedChart = sortedMonths.map(key => {
-          const item = monthAgg[key]
-          const monthLabel = item.monthDate.toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-AE', { month: 'short' })
-          return {
-            name: monthLabel,
-            revenue: item.revenue,
-            expense: item.expense,
-          }
-        })
-
-        // If no records yet, provide a clean empty baseline
-        if (formattedChart.length === 0) {
-          const currentMonthName = new Date().toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-AE', { month: 'short' })
-          setChartData([{ name: currentMonthName, revenue: 0, expense: 0 }])
-        } else {
-          setChartData(formattedChart)
-        }
-
-        const netProfit = totalRevenue - totalExpenses
-        // Net VAT payable = output VAT - recoverable input VAT.
-        // 5% of gross revenue was wrong: it ignored zero-rated, exempt and input VAT.
-        const vatDue = outputVat - inputVat
+        const formattedChart = (snapshot.monthly || []).map((item) => ({
+          name: item.month,
+          revenue: Number(item.revenue) || 0,
+          expense: Number(item.expense) || 0,
+        }))
+        setChartData(formattedChart.length ? formattedChart : [{ name: new Date().toLocaleDateString(locale === 'ar' ? 'ar-AE' : 'en-AE', { month: 'short' }), revenue: 0, expense: 0 }])
 
         setStats({
-          totalRevenue,
-          totalExpenses,
-          netProfit,
-          vatDue,
+          totalRevenue: Number(snapshot.revenue) || 0,
+          totalExpenses: Number(snapshot.expenses) || 0,
+          netProfit: Number(snapshot.net_profit) || 0,
+          vatDue: Number(snapshot.vat_due) || 0,
           employeesCount: empRes.count || 0,
           outstandingInvoices: invDraftRes.count || 0,
           fixedAssetsValue: assetsTotal,

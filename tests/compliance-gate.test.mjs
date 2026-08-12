@@ -1,0 +1,17 @@
+import assert from 'node:assert/strict'
+import fs from 'node:fs'
+const migration=fs.readFileSync('supabase/migrations/011_phase6_compliance_operations.sql','utf8')
+const ct=fs.readFileSync('src/lib/accounting/corporate-tax.ts','utf8')
+const fx=fs.readFileSync('src/lib/accounting/fx.ts','utf8')
+const cron=fs.readFileSync('src/app/api/cron/exchange-rates/route.ts','utf8')
+const dep=fs.readFileSync('src/app/api/cron/depreciation/route.ts','utf8')
+assert.match(migration,/corporate_tax_workpapers/)
+assert.match(migration,/regulatory_change_log/)
+assert.match(migration,/actor_type TEXT/)
+assert.match(migration,/fn_corporate_tax_workpaper/)
+assert.match(ct,/LOSS_OFFSET_CAP = 0\.75/)
+assert.match(ct,/SBR_REVENUE_CAP/)
+assert.match(fx,/No date-specific CBUAE rate supplied/)
+assert.match(cron,/CRON_SECRET/)
+assert.match(dep,/CRON_SECRET/)
+console.log('phase 6 compliance gate checks passed')

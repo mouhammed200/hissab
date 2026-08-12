@@ -228,3 +228,12 @@ export interface AIConversation {
   metadata: Record<string, unknown>
   created_at: string
 }
+
+export interface AccountingPolicy {
+  org_id: string
+  base_currency: 'AED'
+  accounting_basis: 'accrual' | 'cash'
+  reporting_standard: 'IFRS' | 'IFRS for SMEs' | 'other'
+  standard_vat_rate: number
+  updated_at: string
+}

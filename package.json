@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "test": "node --experimental-strip-types --test tests/",
-    "test:smoke": "node tests/smoke.test.mjs"
+    "test:smoke": "node tests/smoke.test.mjs",
+    "test:compliance-gate": "node --experimental-strip-types --test tests/compliance-gate.test.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.16.0",

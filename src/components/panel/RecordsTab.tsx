@@ -32,6 +32,14 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
           .from('invoices')
           .select('id, invoice_type, invoice_number, status, issue_date, created_at, total_amount, contacts(name)')
           .eq('org_id', orgId)
+        const { data: relatedParties } = await supabase
+          .from('related_party_transactions')
+          .select('id, related_party_name, transaction_type, transaction_date, amount, currency, created_at')
+          .eq('org_id', orgId)
+        const { data: assets } = await supabase
+          .from('fixed_assets')
+          .select('id, name, purchase_date, purchase_cost, created_at')
+          .eq('org_id', orgId)
         const { data: employees } = await supabase
           .from('employees')
           .select('id, full_name, position, hire_date, basic_salary, allowances, created_at')
@@ -61,6 +69,20 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
               color: isSale ? 'text-emerald-400' : 'text-amber-400',
               rawDate: new Date(`${String(recordDate).slice(0, 10)}T00:00:00`)
             })
+          }
+        }
+
+        if (assets) {
+          for (const asset of assets) {
+            const recordDate = asset.purchase_date || asset.created_at
+            unified.push({ id: asset.id, type: 'Asset', icon: '🏢', title: asset.name || (locale === 'ar' ? 'أصل' : 'Asset'), subtitle: `${locale === 'ar' ? 'أصل ثابت' : 'Fixed asset'} • ${fmtDate(recordDate)}`, amount: Number(asset.purchase_cost) || 0, color: 'text-violet-400', rawDate: new Date(`${String(recordDate).slice(0, 10)}T00:00:00`) })
+          }
+        }
+
+        if (relatedParties) {
+          for (const related of relatedParties) {
+            const recordDate = related.transaction_date || related.created_at
+            unified.push({ id: related.id, type: 'Related Party', icon: '🔗', title: related.related_party_name || (locale === 'ar' ? 'طرف ذو صلة' : 'Related party'), subtitle: `${related.transaction_type || 'transaction'} • ${fmtDate(recordDate)}`, amount: Number(related.amount) || 0, color: 'text-cyan-400', rawDate: new Date(`${String(recordDate).slice(0, 10)}T00:00:00`) })
           }
         }
 
@@ -123,6 +145,8 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
           <option value="Sale">{t('records.sales')}</option>
           <option value="Purchase">{t('records.purchases')}</option>
           <option value="Employee">{t('records.employees')}</option>
+          <option value="Asset">{t('records.assets')}</option>
+          <option value="Related Party">{t('records.relatedParties')}</option>
         </select>
         
         <select
@@ -151,7 +175,7 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
           <div className="text-[var(--text-muted)] text-sm p-4 text-center">{t('records.loading')}</div>
         ) : filteredRecords.length > 0 ? (
           filteredRecords.map((record) => (
-            <div key={record.id} className="glass-hover rounded-lg p-3 sm:p-4 flex items-center gap-3 sm:gap-4 cursor-pointer transition-all">
+            <div key={record.id} role="button" tabIndex={0} aria-label={`${record.type}: ${record.title}`} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click() }} className="glass-hover rounded-lg p-3 sm:p-4 flex items-center gap-3 sm:gap-4 cursor-pointer transition-all">
               <span className="text-lg sm:text-xl">{record.icon}</span>
               <div className="flex-1 min-w-0">
                 <p className="text-xs sm:text-sm font-medium text-[var(--text-primary)] truncate">{record.title}</p>

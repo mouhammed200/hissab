@@ -12,7 +12,7 @@ export const RECORD_RESPONSE_SCHEMA = {
   properties: {
     type: {
       type: 'string' as const,
-      enum: ['sale', 'purchase', 'employee', 'asset', 'relatedParty', 'query', 'action'],
+      enum: ['sale', 'purchase', 'employee', 'asset', 'relatedParty', 'query'],
     },
     subtype: {
       type: 'string' as const,
@@ -89,12 +89,6 @@ export const RECORD_RESPONSE_SCHEMA = {
     isArmsLength: { type: 'boolean' as const },
     // Query response
     queryResponse: { type: 'string' as const },
-    // Action
-    actionType: {
-      type: 'string' as const,
-      enum: ['generate_pdf', 'set_recurring', 'set_budget', 'upload_bank_statement', 'file_vat_return'],
-    },
-    actionPayload: { type: 'object' as const },
     // Meta
     notes: { type: 'string' as const },
     confidence: { type: 'number' as const },
@@ -114,5 +108,4 @@ export const REQUIRED_FIELDS_BY_TYPE: Record<string, string[]> = {
   asset: ['assetName', 'purchaseCost', 'usefulLifeYears'],
   relatedParty: ['party', 'amount'],
   query: ['queryResponse'],
-  action: ['actionType'],
 }

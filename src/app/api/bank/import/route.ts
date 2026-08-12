@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireOrgAccess, WRITE_ROLES } from '@/lib/supabase/guard'
+import { createHash, randomUUID } from 'node:crypto'
 
 const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
@@ -106,6 +107,7 @@ export async function POST(request: NextRequest) {
   const debitIdx = headers.findIndex((h) => h.includes('debit') || h.includes('withdrawal'))
   const creditIdx = headers.findIndex((h) => h.includes('credit') || h.includes('deposit'))
 
+  const importBatchId = randomUUID()
   const transactions = []
   const rejected: Array<{ row: number; reason: string }> = []
 
@@ -137,6 +139,8 @@ export async function POST(request: NextRequest) {
       amount,
       reference_number: refIdx >= 0 ? (cols[refIdx] || null) : null,
       reconciliation_status: 'unmatched' as const,
+      import_batch_id: importBatchId,
+      row_fingerprint: createHash('sha256').update([resolvedBankAccountId, transactionDate, description, amount.toFixed(2), refIdx >= 0 ? (cols[refIdx] || '') : ''].join('|')).digest('hex'),
     })
   }
 
@@ -144,8 +148,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'No valid transactions found in CSV', rejected }, { status: 400 })
   }
 
-  const { data, error } = await supabase.from('bank_transactions').insert(transactions).select('id')
+  const { data, error } = await supabase.from('bank_transactions').upsert(transactions, { onConflict: 'org_id,bank_account_id,row_fingerprint', ignoreDuplicates: true }).select('id')
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-  return NextResponse.json({ success: true, imported: data?.length || 0, rejected })
+  return NextResponse.json({ success: true, importBatchId, imported: data?.length || 0, skippedDuplicates: transactions.length - (data?.length || 0), rejected })
 }

@@ -18,6 +18,9 @@ export async function POST(request: NextRequest) {
   const { supabase, user } = guard
 
   const today = new Date().toISOString().split('T')[0] // 'YYYY-MM-DD'
+  // Phase 06 gate: recurring entries are legacy until migrated to the same
+  // atomic posting RPC. Keep the path explicit and idempotent; do not add new
+  // posting semantics here.
 
   const { data: templates, error: fetchError } = await supabase
     .from('recurring_templates')
@@ -77,46 +80,27 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    // Column is `date`, not `entry_date`. created_by is NOT NULL.
-    const { data: entry, error: entryError } = await supabase
-      .from('journal_entries')
-      .insert({
+    const requestKey = crypto.randomUUID()
+    const { data: posted, error: postError } = await supabase.rpc('post_recurring_transaction', {
+      p_request: {
         org_id: orgId,
-        created_by: user.id,
+        template_id: template.id,
+        request_key: requestKey,
         date: today,
         description: payload.description || template.title,
-        source_type: 'recurring_template',
-        source_id: template.id,
-        status: 'posted',
-        posted_at: new Date().toISOString(),
-        posted_by: user.id,
-      })
-      .select('id')
-      .single()
-
-    if (entryError || !entry) {
-      skipped.push({ id: template.id, reason: entryError?.message || 'Could not create journal entry' })
+        journal_lines: resolved.map((line) => ({
+          account_id: line.account_id,
+          debit: line.debit,
+          credit: line.credit,
+          description: line.description,
+        })),
+      },
+    })
+    if (postError || !posted?.success) {
+      skipped.push({ id: template.id, reason: postError?.message || 'Atomic recurring post failed' })
       continue
     }
-
-    const lines = resolved
-      .filter((l) => l.debit > 0 || l.credit > 0)
-      .map((l) => ({
-        org_id: orgId, // NOT NULL on journal_lines
-        journal_entry_id: entry.id,
-        account_id: l.account_id,
-        debit: l.debit,
-        credit: l.credit,
-        description: l.description,
-      }))
-
-    const { error: linesError } = await supabase.from('journal_lines').insert(lines)
-    if (linesError) {
-      // Roll back the header so we never leave an empty posted entry behind.
-      await supabase.from('journal_entries').delete().eq('id', entry.id).eq('org_id', orgId)
-      skipped.push({ id: template.id, reason: linesError.message })
-      continue
-    }
+    const entryId = String(posted.journalEntryId || '')
 
     // Advance the schedule from the scheduled date, catching up if runs were missed.
     const nextRun = new Date(`${template.next_run_date}T00:00:00Z`)
@@ -150,7 +134,7 @@ export async function POST(request: NextRequest) {
       action: 'process_recurring_template',
       table_name: 'recurring_templates',
       record_id: template.id,
-      new_values: { journal_entry_id: entry.id, next_run_date: nextRunStr, is_active: isActive },
+      new_values: { journal_entry_id: entryId, next_run_date: nextRunStr, is_active: isActive },
     })
 
     processedCount++
