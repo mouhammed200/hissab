@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import MessageList, { ChatMessage } from './MessageList';
 import InputBar from './InputBar';
 import { ParsedRecord, RecordTotals } from './RecordCard';
-import { computeTotals, isTransaction, normalizeRecord, validateRecord } from '@/lib/records/normalize';
+import { computeTotals, hasItemizedTotals, isTransaction, normalizeRecord, validateRecord } from '@/lib/records/normalize';
 import LocaleSwitcher from '@/components/shared/LocaleSwitcher';
 import { useLocale } from '@/lib/i18n/locale';
 
@@ -63,7 +63,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
 
       const validation = resJson.validation ?? (parsedRecord ? validateRecord(parsedRecord) : undefined);
       const totals: RecordTotals | undefined =
-        transaction && parsedRecord ? computeTotals(parsedRecord) : undefined;
+        parsedRecord && hasItemizedTotals(parsedRecord.type) ? computeTotals(parsedRecord) : undefined;
 
       const textAnswer = resJson.text || parsedRecord?.queryResponse || parsedRecord?.notes || '';
 
@@ -220,7 +220,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
         return {
           ...msg,
           record: normalized,
-          recordTotals: isTransaction(normalized.type) ? computeTotals(normalized) : undefined,
+          recordTotals: hasItemizedTotals(normalized.type) ? computeTotals(normalized) : undefined,
           recordErrors: revalidated.errors,
           recordWarnings: revalidated.warnings,
           recordStatus: 'pending'
