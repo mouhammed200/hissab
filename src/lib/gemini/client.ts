@@ -42,21 +42,76 @@ export function getModelChain(): string[] {
   return configured.length ? configured : DEFAULT_MODELS
 }
 
+// Hard ceiling for a single Gemini call attempt. This exists so a hung or
+// silently-stalled request can never consume the whole function's execution
+// budget — we saw production invocations killed at exactly the platform
+// timeout (30000ms) with no application-level error, because a stuck
+// generateContent() call had no upper bound of its own. A per-attempt
+// timeout guarantees withRetry always gets control back to decide whether
+// to retry, fall forward to the next model, or fail fast.
+const PER_ATTEMPT_TIMEOUT_MS = 8_000
+
+class GeminiTimeoutError extends Error {
+  constructor(modelName: string, ms: number) {
+    super(`Gemini call to ${modelName} timed out after ${ms}ms`)
+    this.name = 'GeminiTimeoutError'
+  }
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number, modelName: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new GeminiTimeoutError(modelName, ms)), ms)
+    promise.then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (err) => {
+        clearTimeout(timer)
+        reject(err)
+      },
+    )
+  })
+}
+
 // Retry with exponential backoff on 429, fall forward on 404/unsupported model.
 // Every failure is logged with its model and attempt so a silent degradation to
 // the fallback model is visible in production logs instead of invisible.
-async function withRetry<T>(fn: (modelName: string) => Promise<T>, maxRetries = 3): Promise<T> {
+//
+// Budget-aware: retries stop once the total elapsed time gets close to the
+// platform's function timeout, so we always return a real JSON error instead
+// of getting hard-killed mid-attempt. maxRetries dropped 3 -> 2: with two
+// models in the default chain, worst case was previously up to 6 unbounded
+// attempts; it is now up to 4 attempts, each individually capped at
+// PER_ATTEMPT_TIMEOUT_MS.
+async function withRetry<T>(
+  fn: (modelName: string) => Promise<T>,
+  maxRetries = 2,
+  overallBudgetMs = 22_000, // stay safely under a 30s platform timeout
+): Promise<T> {
   const modelsToTry = getModelChain()
+  const startedAt = Date.now()
   let lastError: unknown = null
 
   for (const modelName of modelsToTry) {
     for (let attempt = 0; attempt < maxRetries; attempt++) {
+      const elapsed = Date.now() - startedAt
+      if (elapsed >= overallBudgetMs) {
+        console.warn(
+          `[gemini] aborting retries — elapsed ${elapsed}ms exceeds budget ${overallBudgetMs}ms`,
+        )
+        throw lastError instanceof Error
+          ? lastError
+          : new Error('Gemini retry budget exhausted before a model succeeded')
+      }
+
       try {
-        return await fn(modelName)
+        return await withTimeout(fn(modelName), PER_ATTEMPT_TIMEOUT_MS, modelName)
       } catch (err: unknown) {
         lastError = err
-        const errObj = err as { status?: number; message?: string }
+        const errObj = err as { status?: number; message?: string; name?: string }
         const message = errObj?.message || ''
+        const isTimeout = errObj?.name === 'GeminiTimeoutError'
         const isRateLimit = errObj?.status === 429 || /429|quota|resource_exhausted/i.test(message)
         const isNotFound =
           errObj?.status === 404 || /404|not found|no longer available|is not supported/i.test(message)
@@ -67,15 +122,24 @@ async function withRetry<T>(fn: (modelName: string) => Promise<T>, maxRetries = 
 
         if (isNotFound) break // stop retrying a model that does not exist
 
-        if (isRateLimit && attempt < maxRetries - 1) {
-          const delayMs = Math.pow(2, attempt) * 1000 + Math.random() * 500
-          await new Promise((res) => setTimeout(res, delayMs))
+        if ((isRateLimit || isTimeout) && attempt < maxRetries - 1) {
+          const remainingBudget = overallBudgetMs - (Date.now() - startedAt)
+          const backoffMs = Math.min(
+            Math.pow(2, attempt) * 1000 + Math.random() * 500,
+            Math.max(remainingBudget - PER_ATTEMPT_TIMEOUT_MS, 0),
+          )
+          if (backoffMs <= 0) {
+            throw lastError instanceof Error
+              ? lastError
+              : new Error('Gemini retry budget exhausted before backoff could run')
+          }
+          await new Promise((res) => setTimeout(res, backoffMs))
           continue
         }
 
         // Non-retryable (400 bad request, malformed schema, auth): fail fast
         // rather than hammering the same broken call across every model.
-        if (!isRateLimit) break
+        if (!isRateLimit && !isTimeout) break
       }
     }
   }
