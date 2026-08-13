@@ -7,3 +7,14 @@
 
 [build.environment]
   NODE_VERSION = "20"
+
+# The Next.js `dynamic = 'force-dynamic'` export was not enough on its own to
+# stop Netlify's edge/durable cache from serving stale or coalesced responses
+# for /api/* routes (observed on /api/gemini: cached 200s bypassed auth, the
+# rate limiter, and Gemini entirely). Force no-store at the Netlify edge
+# layer for every API route as a second, independent guarantee.
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    Cache-Control = "no-store, no-cache, must-revalidate, max-age=0"
+    Netlify-CDN-Cache-Control = "no-store"
