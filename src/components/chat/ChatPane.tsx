@@ -76,6 +76,9 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
         recordStatus: transaction ? 'pending' : undefined,
         recordErrors: transaction ? validation?.errors ?? [] : undefined,
         recordWarnings: transaction ? validation?.warnings ?? [] : undefined,
+        // Generated once here and reused on confirm. post_record_transaction()
+        // requires a real UUID; `${orgId}:${messageId}` (the old key) never was one.
+        idempotencyKey: transaction ? crypto.randomUUID() : undefined,
         timestamp: new Date()
       };
 
@@ -114,9 +117,13 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
     ));
 
     try {
+      // Fall back to a fresh UUID only for messages created before this fix
+      // shipped (already in memory client-side); every new message gets one
+      // at parse time above.
+      const idempotencyKey = msg.idempotencyKey ?? crypto.randomUUID();
       const res = await fetch('/api/records/confirm', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': `${orgId}:${messageId}` },
+        headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
         body: JSON.stringify({
           orgId,
           record: msg.record,
