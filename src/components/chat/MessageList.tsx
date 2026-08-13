@@ -16,6 +16,13 @@ export interface ChatMessage {
   /** Non-blocking notices the user should read before confirming. */
   recordWarnings?: string[];
   dbRecordId?: string;
+  /**
+   * A real UUID generated once when a transaction record is parsed, and
+   * reused as the Idempotency-Key on confirm. post_record_transaction()
+   * rejects any request_key that isn't a valid UUID (migration 007), so this
+   * must never be derived from a timestamp or composed with orgId.
+   */
+  idempotencyKey?: string;
   timestamp: Date;
 }
 
