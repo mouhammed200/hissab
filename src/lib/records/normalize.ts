@@ -491,3 +491,12 @@ export function validateRecord(record: NormalizedRecord): ValidationResult {
 export function isTransaction(type: string | undefined): boolean {
   return !!type && (TRANSACTION_TYPES as string[]).includes(type)
 }
+
+// computeTotals() only sums record.items. sale/purchase are the only types
+// that carry items — asset (purchaseCost), employee (basicSalary+allowances),
+// and relatedParty (amount) all have zero items, so computeTotals silently
+// returned {total: 0} for them and RecordCard rendered "Total: 0.00 AED".
+// Gate totals to the types that actually have line items.
+export function hasItemizedTotals(type: string | undefined): boolean {
+  return type === 'sale' || type === 'purchase'
+}
