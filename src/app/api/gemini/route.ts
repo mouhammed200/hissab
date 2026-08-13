@@ -5,6 +5,13 @@ import { convertForeignInvoiceToAed } from '@/lib/accounting/fx'
 import { normalizeRecord, validateRecord, computeTotals, hasItemizedTotals } from '@/lib/records/normalize'
 import { consumeSharedRateLimit, safeRequestId } from '@/lib/ops/rate-limit'
 
+// Route handlers are dynamic by default, but Netlify's edge/durable cache
+// layer (@netlify/plugin-nextjs) was observed caching or coalescing POST
+// responses to this route under concurrent load, letting requests skip
+// auth, the rate limiter, and Gemini entirely. Force it off at both layers.
+export const dynamic = 'force-dynamic'
+export const fetchCache = 'force-no-store'
+
 const MAX_MESSAGE_CHARS = 20_000
 
 export async function POST(request: NextRequest) {
