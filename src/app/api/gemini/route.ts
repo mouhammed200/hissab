@@ -7,10 +7,19 @@ import { consumeSharedRateLimit, safeRequestId } from '@/lib/ops/rate-limit'
 
 // Route handlers are dynamic by default, but Netlify's edge/durable cache
 // layer (@netlify/plugin-nextjs) was observed caching or coalescing POST
-// responses to this route under concurrent load, letting requests skip
-// auth, the rate limiter, and Gemini entirely. Force it off at both layers.
+// responses to this route even with force-dynamic set — that Next.js signal
+// alone isn't enough to stop Netlify's own edge cache. An explicit
+// Cache-Control: no-store on every response is what Netlify's edge actually
+// honors, so every NextResponse.json call below goes through this wrapper.
 export const dynamic = 'force-dynamic'
 export const fetchCache = 'force-no-store'
+
+function json(body: unknown, init?: ResponseInit) {
+  const res = NextResponse.json(body, init)
+  res.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0')
+  res.headers.set('Netlify-CDN-Cache-Control', 'no-store')
+  return res
+}
 
 const MAX_MESSAGE_CHARS = 20_000
 
@@ -20,16 +29,16 @@ export async function POST(request: NextRequest) {
   const { data: { user }, error: authError } = await supabase.auth.getUser()
 
   if (authError || !user) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return json({ error: 'Unauthorized' }, { status: 401 })
   }
 
   try {
     const requestId = safeRequestId(request)
     const limited = await consumeSharedRateLimit(supabase, `${user.id}:${request.headers.get('x-forwarded-for') || 'unknown'}`, 20)
-    if (!limited.allowed) return NextResponse.json({ error: 'Rate limit exceeded. Try again shortly.', requestId }, { status: 429 })
+    if (!limited.allowed) return json({ error: 'Rate limit exceeded. Try again shortly.', requestId }, { status: 429 })
     const body = await request.json()
     if (typeof body.message !== 'string' || body.message.length > MAX_MESSAGE_CHARS) {
-      return NextResponse.json({ error: 'Message is missing or too large' }, { status: 413 })
+      return json({ error: 'Message is missing or too large' }, { status: 413 })
     }
     const { message, orgId, chatHistory, fileData } = body as {
       message: string
@@ -39,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (!message || !orgId) {
-      return NextResponse.json({ error: 'Missing message or orgId' }, { status: 400 })
+      return json({ error: 'Missing message or orgId' }, { status: 400 })
     }
 
 
@@ -52,7 +61,7 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!membership) {
-      return NextResponse.json({ error: 'No access to this organization' }, { status: 403 })
+      return json({ error: 'No access to this organization' }, { status: 403 })
     }
 
     // 3. Fetch context data for queries (summary stats)
@@ -64,7 +73,7 @@ export async function POST(request: NextRequest) {
 
     // 4. Call Gemini. Reject oversized inline uploads before sending them upstream.
     if (fileData && (!fileData.mimeType || !fileData.data || fileData.data.length > 8_000_000)) {
-      return NextResponse.json({ error: 'Attachment is missing or too large (max 6 MB)' }, { status: 413 })
+      return json({ error: 'Attachment is missing or too large (max 6 MB)' }, { status: 413 })
     }
     const result = await parseTransaction({
       userMessage: message,
@@ -77,7 +86,7 @@ export async function POST(request: NextRequest) {
     })
 
     if (!result.success) {
-      return NextResponse.json({ error: result.error }, { status: 500 })
+      return json({ error: result.error }, { status: 500 })
     }
 
     // 5. Normalize before anything else touches the payload. This flattens
@@ -91,7 +100,7 @@ export async function POST(request: NextRequest) {
     // Product honesty gate: chat may extract transactions and answer queries.
     // It must never advertise an action unless a real executor is wired.
     if (record.type === 'action') {
-      return NextResponse.json({
+      return json({
         success: true,
         data: { type: 'query', queryResponse: 'This command is not available from chat. Use the reviewed control in Hissab instead.', currency: 'AED', items: [] },
         totals: computeTotals({ items: [] }),
@@ -140,7 +149,7 @@ export async function POST(request: NextRequest) {
       { org_id: orgId, user_id: user.id, role: 'assistant', content: JSON.stringify(record) },
     ])
 
-    return NextResponse.json({
+    return json({
       requestId,
       success: true,
       data: record,
@@ -150,6 +159,6 @@ export async function POST(request: NextRequest) {
     })
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Internal server error'
-    return NextResponse.json({ error: message }, { status: 500 })
+    return json({ error: message }, { status: 500 })
   }
 }
