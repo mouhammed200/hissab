@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { parseTransaction } from '@/lib/gemini/client'
 import { convertForeignInvoiceToAed } from '@/lib/accounting/fx'
-import { normalizeRecord, validateRecord, computeTotals } from '@/lib/records/normalize'
+import { normalizeRecord, validateRecord, computeTotals, hasItemizedTotals } from '@/lib/records/normalize'
 import { consumeSharedRateLimit, safeRequestId } from '@/lib/ops/rate-limit'
 
 const MAX_MESSAGE_CHARS = 20_000
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
       requestId,
       success: true,
       data: record,
-      totals: computeTotals(record),
+      totals: hasItemizedTotals(record.type) ? computeTotals(record) : undefined,
       validation,
       text: textResponse,
     })
