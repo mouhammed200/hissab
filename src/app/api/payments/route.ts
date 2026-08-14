@@ -14,7 +14,8 @@ export async function POST(req: Request) {
     if (error) throw error
     return NextResponse.json(data)
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Atomic payment failed'
+    const message = (error as { message?: string })?.message || 'Atomic payment failed'
+    console.error('post_payment_transaction failed', error)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
