@@ -29,11 +29,13 @@ export interface ChatMessage {
 interface MessageListProps {
   messages: ChatMessage[];
   onConfirmRecord: (messageId: string) => void;
-  onVoidRecord: (messageId: string) => void;
+  onVoidRecord: (messageId: string, reason?: string) => void;
   onEditRecord: (messageId: string) => void;
   onSaveEdit: (messageId: string, updated: ParsedRecord) => void;
   onCancelEdit: (messageId: string) => void;
   onSuggestion: (text: string) => void;
+  /** False for viewer-role members; hides the real (confirmed-record) void action. */
+  canVoid: boolean;
 }
 
 const formatTime = (date: Date, locale: string) => {
@@ -58,7 +60,8 @@ export default function MessageList({
   onEditRecord,
   onSaveEdit,
   onCancelEdit,
-  onSuggestion
+  onSuggestion,
+  canVoid
 }: MessageListProps) {
   const endOfMessagesRef = useRef<HTMLDivElement>(null);
   const { t, locale } = useLocale();
@@ -111,10 +114,11 @@ export default function MessageList({
                       errors={msg.recordErrors}
                       warnings={msg.recordWarnings}
                       onConfirm={() => onConfirmRecord(msg.id)}
-                      onVoid={() => onVoidRecord(msg.id)}
+                      onVoid={(reason) => onVoidRecord(msg.id, reason)}
                       onEdit={() => onEditRecord(msg.id)}
                       onSaveEdit={(updated) => onSaveEdit(msg.id, updated)}
                       onCancelEdit={() => onCancelEdit(msg.id)}
+                      canVoid={canVoid}
                     />
                   </div>
                 )}
