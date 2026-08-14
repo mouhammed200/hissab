@@ -1,12 +1,13 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import MessageList, { ChatMessage } from './MessageList';
 import InputBar from './InputBar';
 import { ParsedRecord, RecordTotals } from './RecordCard';
 import { computeTotals, hasItemizedTotals, isTransaction, normalizeRecord, validateRecord } from '@/lib/records/normalize';
 import LocaleSwitcher from '@/components/shared/LocaleSwitcher';
 import { useLocale } from '@/lib/i18n/locale';
+import { createClient } from '@/lib/supabase/client';
 
 interface ChatPaneProps {
   orgId: string;
@@ -20,6 +21,27 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
   const { locale, t } = useLocale();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
+  // Mirrors WRITE_ROLES in src/lib/supabase/guard.ts. Fetched client-side so
+  // the void button can be hidden for viewer-role members instead of only
+  // failing with a 403 after they've already been prompted for a reason.
+  const [canVoid, setCanVoid] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    const supabase = createClient();
+    supabase
+      .from('org_members')
+      .select('role')
+      .eq('org_id', orgId)
+      .eq('user_id', userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        if (cancelled) return;
+        const role = data?.role;
+        setCanVoid(role === 'owner' || role === 'admin' || role === 'accountant');
+      });
+    return () => { cancelled = true; };
+  }, [orgId, userId]);
 
 
   const handleSend = async (content: string, fileData?: { mimeType: string; data: string }) => {
@@ -171,9 +193,16 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
     }
   };
 
-  const handleVoidRecord = async (messageId: string) => {
+  const handleVoidRecord = async (messageId: string, reason?: string) => {
     const msg = messages.find(m => m.id === messageId);
     if (!msg) return;
+
+    // A record only reaches the DB (gets a dbRecordId) after confirm. Voiding
+    // one for real requires a reason (guard.ts / void_record_transaction
+    // migration 016); dismissing a still-pending draft is purely local and
+    // never needed one — collapsing both cases behind one reason prompt was
+    // a bug (it blocked plain "dismiss draft" clicks too).
+    if (msg.dbRecordId && !reason?.trim()) return;
 
     setMessages(prev => prev.map(m =>
       m.id === messageId ? { ...m, recordStatus: 'voided' } : m
@@ -181,13 +210,27 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
 
     try {
       if (msg.dbRecordId) {
+        // Chat-created records report their kind via record.type. Map that to
+        // the void route's sourceType + id-field contract (src/app/api/records/void/route.ts
+        // SOURCE_ID_FIELDS). sale/purchase both land in the invoices table.
+        const VOID_FIELD_BY_RECORD_TYPE: Record<string, { sourceType: string; idField: string }> = {
+          sale: { sourceType: 'invoice', idField: 'invoiceId' },
+          purchase: { sourceType: 'invoice', idField: 'invoiceId' },
+          employee: { sourceType: 'employee', idField: 'employeeId' },
+          asset: { sourceType: 'asset', idField: 'assetId' },
+          relatedParty: { sourceType: 'relatedParty', idField: 'relatedPartyId' },
+        };
+        const mapping = msg.record?.type ? VOID_FIELD_BY_RECORD_TYPE[msg.record.type] : undefined;
+        // Fall back to legacy invoice-only behavior if the record type is
+        // missing or isn't voidable from chat (e.g. 'query'/'action').
+        const voidBody = mapping
+          ? { orgId, sourceType: mapping.sourceType, [mapping.idField]: msg.dbRecordId, reason }
+          : { orgId, invoiceId: msg.dbRecordId, reason };
+
         const res = await fetch('/api/records/void', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orgId,
-            invoiceId: msg.dbRecordId,
-          }),
+          body: JSON.stringify(voidBody),
         });
         if (!res.ok) {
           const data = await res.json();
@@ -295,6 +338,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
         onSaveEdit={handleSaveEdit}
         onCancelEdit={handleCancelEdit}
         onSuggestion={handleSend}
+        canVoid={canVoid}
       />
 
       {/* Input Area */}
