@@ -27,6 +27,8 @@
     "cancel": "إلغاء",
     "confirmed": "مؤكد",
     "voided": "ملغى",
+    "voidReasonTitle": "سبب الإلغاء",
+    "voidReasonPlaceholder": "أدخل سبب الإلغاء...",
     "pending": "قيد الانتظار",
     "subtotal": "المجموع الفرعي",
     "discount": "الخصم",
