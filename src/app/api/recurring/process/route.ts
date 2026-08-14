@@ -1,5 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createHash } from 'crypto'
 import { requireOrgAccess, WRITE_ROLES } from '@/lib/supabase/guard'
+
+// Deterministic idempotency key: same template + same scheduled run date
+// always produces the same key, so two concurrent invocations of this route
+// collide on purpose and the DB's `posting_requests` UNIQUE(org_id, request_key)
+// guard (see post_recurring_transaction) catches the second one instead of
+// both succeeding. A random key (crypto.randomUUID()) can never do this,
+// since it differs on every call even for the same template/date.
+function deterministicRequestKey(templateId: string, scheduledDate: string): string {
+  const hex = createHash('sha256').update(`${templateId}:${scheduledDate}`).digest('hex').slice(0, 32)
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20, 32)}`
+}
 
 interface PayloadLine {
   account_code?: string
@@ -80,7 +92,7 @@ export async function POST(request: NextRequest) {
       continue
     }
 
-    const requestKey = crypto.randomUUID()
+    const requestKey = deterministicRequestKey(template.id, today)
     const { data: posted, error: postError } = await supabase.rpc('post_recurring_transaction', {
       p_request: {
         org_id: orgId,
