@@ -44,7 +44,8 @@ export async function POST(req: Request) {
     if (error) throw error
     return NextResponse.json(data)
   } catch (error) {
-    const message = error instanceof Error ? error.message : 'Atomic void failed'
+    const message = (error as { message?: string })?.message || 'Atomic void failed'
+    console.error('void_record_transaction failed', error)
     return NextResponse.json({ error: message }, { status: 500 })
   }
 }
