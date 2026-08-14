@@ -27,6 +27,8 @@
     "cancel": "Cancel",
     "confirmed": "Confirmed",
     "voided": "Voided",
+    "voidReasonTitle": "Reason for voiding",
+    "voidReasonPlaceholder": "Enter a correction reason...",
     "pending": "Pending",
     "subtotal": "Subtotal",
     "discount": "Discount",
