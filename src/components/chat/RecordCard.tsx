@@ -19,10 +19,13 @@ interface RecordCardProps {
   /** Non-blocking notices, e.g. a rebuilt lump-sum line or a missing TRN. */
   warnings?: string[];
   onConfirm: () => void;
-  onVoid: () => void;
+  /** Called with a reason when voiding a confirmed (posted) record; called with no argument when dismissing a still-pending draft. */
+  onVoid: (reason?: string) => void;
   onEdit: () => void;
   onSaveEdit: (updated: ParsedRecord) => void;
   onCancelEdit: () => void;
+  /** False for viewer-role members; hides the void action on a confirmed record. */
+  canVoid?: boolean;
 }
 
 const formatCurrency = (amount: number, currency: string = 'AED') => {
@@ -39,11 +42,14 @@ export default function RecordCard({
   onVoid,
   onEdit,
   onSaveEdit,
-  onCancelEdit
+  onCancelEdit,
+  canVoid = true
 }: RecordCardProps) {
   const { t, locale } = useLocale();
   const [editRecord, setEditRecord] = useState<ParsedRecord>(record);
   useEffect(() => setEditRecord(record), [record]);
+  const [showVoidModal, setShowVoidModal] = useState(false);
+  const [voidReason, setVoidReason] = useState('');
 
   const getIconAndLabel = () => {
     switch (record.type) {
@@ -308,7 +314,7 @@ export default function RecordCard({
       <div className="p-4 flex justify-end gap-2 border-t border-[var(--border-subtle)] bg-[var(--bg-card)]">
         {status === 'pending' && (
           <>
-            <button onClick={onVoid} className="px-4 py-2 text-sm text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors">{t('record.cancel') || 'Dismiss'}</button>
+            <button onClick={() => onVoid()} className="px-4 py-2 text-sm text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors">{t('record.cancel') || 'Dismiss'}</button>
             <button onClick={onEdit} className="px-4 py-2 text-sm text-blue-400 border border-blue-500/30 rounded-lg hover:bg-blue-500/10 transition-colors">{t('record.edit') || 'Edit'}</button>
             <button
               onClick={onConfirm}
@@ -330,7 +336,9 @@ export default function RecordCard({
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><polyline points="20 6 9 17 4 12"></polyline></svg>
               <span className="text-sm font-medium">{t('record.confirmed') || 'Confirmed'}</span>
             </div>
-            <button onClick={onVoid} className="px-4 py-2 text-sm text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors">{t('record.void') || 'Void'}</button>
+            {canVoid && (
+              <button onClick={() => setShowVoidModal(true)} className="px-4 py-2 text-sm text-red-400 border border-red-500/30 rounded-lg hover:bg-red-500/10 transition-colors">{t('record.void') || 'Void'}</button>
+            )}
           </>
         )}
         {status === 'editing' && (
@@ -343,6 +351,53 @@ export default function RecordCard({
           <div className="text-sm text-[var(--text-muted)] italic font-medium w-full text-center">{t('record.voided') || 'This record has been voided'}</div>
         )}
       </div>
+
+      {showVoidModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="void-reason-title"
+        >
+          <div className="glass rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] w-full max-w-sm p-4">
+            <h3 id="void-reason-title" className="text-sm font-semibold text-[var(--text-primary)] mb-2">
+              {t('record.voidReasonTitle')}
+            </h3>
+            <textarea
+              autoFocus
+              value={voidReason}
+              onChange={(e) => setVoidReason(e.target.value)}
+              placeholder={t('record.voidReasonPlaceholder')}
+              className="w-full min-h-[80px] rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-primary)] text-sm p-2 mb-3 resize-none"
+            />
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => { setShowVoidModal(false); setVoidReason(''); }}
+                className="px-4 py-2 text-sm text-[var(--text-secondary)] border border-[var(--border-subtle)] rounded-lg hover:bg-[var(--bg-secondary)] transition-colors"
+              >
+                {t('record.cancel') || 'Cancel'}
+              </button>
+              <button
+                onClick={() => {
+                  const reason = voidReason.trim();
+                  if (!reason) return;
+                  setShowVoidModal(false);
+                  setVoidReason('');
+                  onVoid(reason);
+                }}
+                disabled={!voidReason.trim()}
+                className={`px-4 py-2 text-sm rounded-lg transition-colors ${
+                  voidReason.trim()
+                    ? 'bg-red-600 text-white hover:bg-red-500'
+                    : 'bg-[var(--bg-secondary)] text-[var(--text-muted)] border border-[var(--border-subtle)] cursor-not-allowed'
+                }`}
+              >
+                {t('record.void') || 'Void'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
