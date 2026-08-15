@@ -72,6 +72,15 @@
     "bankAccount": "Bank account",
     "selectBankAccount": "-- Select an account --",
     "allocatedToInvoices": "Allocated to invoices",
+    "addAllocation": "Add allocation",
+    "removeAllocation": "Remove allocation",
+    "noAllocations": "No allocations yet. Use \"Add allocation\" to allocate this payment to an invoice.",
+    "paymentMethods": {
+      "bank_transfer": "Bank transfer",
+      "cash": "Cash",
+      "cheque": "Cheque",
+      "card": "Card"
+    },
     "types": {
       "sale": "Sale",
       "purchase": "Purchase",
@@ -118,7 +127,8 @@
     "noRecords": "No records found.",
     "loading": "Loading records...",
     "assets": "Assets",
-    "relatedParties": "Related parties"
+    "relatedParties": "Related parties",
+    "payments": "Payments"
   },
   "reports": {
     "exportAll": "Export All to Excel",
@@ -134,7 +144,13 @@
     "noData": "No data for this period.",
     "loading": "Loading...",
     "importSuccess": "Bank import complete: {{count}} transactions.",
-    "importFailed": "Bank import failed"
+    "importFailed": "Bank import failed",
+    "paymentHistory": "Payment History",
+    "paymentDate": "Date",
+    "paymentParty": "Party",
+    "paymentDirection": "Direction",
+    "paymentMethodCol": "Method",
+    "paymentAmount": "Amount"
   },
   "audit": {
     "loading": "Loading audit logs...",

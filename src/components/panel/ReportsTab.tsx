@@ -62,6 +62,30 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
     aged_receivable: false, aged_payable: false, vat_return: false,
   })
 
+  // Payment history has its own read path (/api/payments) rather than
+  // /api/reports, so it's tracked separately from reportData/loadingMap.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [payments, setPayments] = useState<any[]>([])
+  const [paymentsLoaded, setPaymentsLoaded] = useState(false)
+  const [paymentsLoading, setPaymentsLoading] = useState(false)
+
+  const fetchPayments = useCallback(async () => {
+    if (paymentsLoaded) return
+    setPaymentsLoading(true)
+    try {
+      const res = await fetch(`/api/payments?orgId=${encodeURIComponent(orgId)}`)
+      const json = await res.json()
+      if (res.ok) {
+        setPayments(json.payments ?? [])
+        setPaymentsLoaded(true)
+      }
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setPaymentsLoading(false)
+    }
+  }, [orgId, paymentsLoaded])
+
   const fetchReport = useCallback(async (type: ReportType) => {
     if (reportData[type].length > 0) return // already loaded
     setLoadingMap(p => ({ ...p, [type]: true }))
@@ -201,6 +225,41 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
 
       <Accordion title={t('reports.agedPayables')} onOpen={() => fetchReport('aged_payable')} loading={loadingMap.aged_payable}>
         {renderTable(reportData.aged_payable)}
+      </Accordion>
+
+      <Accordion title={t('reports.paymentHistory')} onOpen={fetchPayments} loading={paymentsLoading}>
+        {payments.length ? (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left border-collapse text-xs">
+              <thead>
+                <tr className="text-[var(--text-muted)] border-b border-[var(--border-subtle)]">
+                  <th className="pb-2 pr-4 font-medium">{t('reports.paymentDate')}</th>
+                  <th className="pb-2 pr-4 font-medium">{t('reports.paymentParty')}</th>
+                  <th className="pb-2 pr-4 font-medium">{t('reports.paymentDirection')}</th>
+                  <th className="pb-2 pr-4 font-medium">{t('reports.paymentMethodCol')}</th>
+                  <th className="pb-2 pr-4 font-medium text-right">{t('reports.paymentAmount')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((p) => (
+                  <tr key={p.id} className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-white/5">
+                    <td className="py-2 pr-4 text-[var(--text-secondary)]">{p.payment_date ? String(p.payment_date).slice(0, 10) : '-'}</td>
+                    <td className="py-2 pr-4 text-[var(--text-secondary)]">{p.contact?.name || p.payment_number || '-'}</td>
+                    <td className="py-2 pr-4 text-[var(--text-secondary)]">
+                      {p.payment_type === 'received' ? t('record.received') : t('record.sent')}
+                    </td>
+                    <td className="py-2 pr-4 text-[var(--text-secondary)]">{p.payment_method || '-'}</td>
+                    <td className="py-2 pr-4 text-[var(--text-secondary)] text-right tabular-nums">
+                      {fmt(Number(p.amount) || 0)} {p.currency || 'AED'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p className="text-[var(--text-muted)] italic text-center py-4">{t('reports.noData')}</p>
+        )}
       </Accordion>
 
       <Accordion title={t('reports.bankReconciliation')} onOpen={() => {}}>

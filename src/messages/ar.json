@@ -72,6 +72,15 @@
     "bankAccount": "الحساب البنكي",
     "selectBankAccount": "-- اختر حساباً --",
     "allocatedToInvoices": "مخصصة للفواتير",
+  "addAllocation": "إضافة تخصيص",
+  "removeAllocation": "إزالة التخصيص",
+  "noAllocations": "لا توجد تخصيصات بعد. استخدم \"إضافة تخصيص\" لتخصيص هذه الدفعة لفاتورة.",
+  "paymentMethods": {
+    "bank_transfer": "تحويل بنكي",
+    "cash": "نقدًا",
+    "cheque": "شيك",
+    "card": "بطاقة"
+  },
     "types": {
       "sale": "بيع",
       "purchase": "شراء",
@@ -118,7 +127,8 @@
     "noRecords": "لا توجد سجلات بعد.",
     "loading": "جارٍ تحميل السجلات...",
     "assets": "الأصول",
-    "relatedParties": "الأطراف ذات الصلة"
+    "relatedParties": "الأطراف ذات الصلة",
+    "payments": "المدفوعات"
   },
   "reports": {
     "exportAll": "تصدير الكل إلى Excel",
@@ -134,7 +144,13 @@
     "noData": "لا توجد بيانات لهذه الفترة.",
     "loading": "جارٍ التحميل...",
     "importSuccess": "اكتمل استيراد البنك: {{count}} معاملة.",
-    "importFailed": "فشل استيراد البنك"
+    "importFailed": "فشل استيراد البنك",
+    "paymentHistory": "سجل المدفوعات",
+    "paymentDate": "التاريخ",
+    "paymentParty": "الطرف",
+    "paymentDirection": "الاتجاه",
+    "paymentMethodCol": "طريقة الدفع",
+    "paymentAmount": "المبلغ"
   },
   "audit": {
     "loading": "جارٍ تحميل سجلات المراجعة...",

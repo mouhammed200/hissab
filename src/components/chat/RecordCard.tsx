@@ -139,6 +139,30 @@ export default function RecordCard({
     setEditRecord({ ...editRecord, items: newItems });
   };
 
+  // Payment amount/method were only ever rendered as static spans, even in
+  // edit mode — this is the same field-on-editRecord pattern handleItemChange
+  // uses for sale/purchase lines, applied to the payment's own scalar fields.
+  const handlePaymentField = <K extends keyof ParsedRecord>(field: K, value: ParsedRecord[K]) => {
+    setEditRecord({ ...editRecord, [field]: value });
+  };
+
+  const handleAllocationChange = (index: number, field: keyof NormalizedAllocation, value: string | number) => {
+    const newAllocations = [...(editRecord.allocations || [])];
+    newAllocations[index] = { ...newAllocations[index], [field]: value };
+    setEditRecord({ ...editRecord, allocations: newAllocations });
+  };
+
+  const addAllocation = () => {
+    setEditRecord({ ...editRecord, allocations: [...(editRecord.allocations || []), { invoiceNumber: '', amount: 0 }] });
+  };
+
+  const removeAllocation = (index: number) => {
+    setEditRecord({ ...editRecord, allocations: (editRecord.allocations || []).filter((_, i) => i !== index) });
+  };
+
+  const displayAllocations = isEditing ? editRecord.allocations : record.allocations;
+  const showAllocations = isEditing || Boolean(record.allocations && record.allocations.length > 0);
+
   return (
     <div className={`glass rounded-xl overflow-hidden mb-4 animate-slide-up border-l-4 record-${record.type} ${isVoided ? 'opacity-50 grayscale' : ''}`}>
       <div className="p-4 border-b border-[var(--border-subtle)] flex justify-between items-center bg-[var(--bg-card)]">
@@ -319,11 +343,33 @@ export default function RecordCard({
               </div>
               <div>
                 <span className="text-[var(--text-muted)] block">{t('record.paymentMethod')}</span>
-                <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.paymentMethod || 'bank_transfer'}</span>
+                {isEditing ? (
+                  <select
+                    value={editRecord.paymentMethod || 'bank_transfer'}
+                    onChange={(e) => handlePaymentField('paymentMethod', e.target.value)}
+                    className="w-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded px-2 py-1 text-[var(--text-primary)]"
+                  >
+                    <option value="bank_transfer">{t('record.paymentMethods.bank_transfer')}</option>
+                    <option value="cash">{t('record.paymentMethods.cash')}</option>
+                    <option value="cheque">{t('record.paymentMethods.cheque')}</option>
+                    <option value="card">{t('record.paymentMethods.card')}</option>
+                  </select>
+                ) : (
+                  <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.paymentMethod || 'bank_transfer'}</span>
+                )}
               </div>
               <div>
                 <span className="text-[var(--text-muted)] block">{t('record.amount')}</span>
-                <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.amount ?? 0, record.currency)}</span>
+                {isEditing ? (
+                  <input
+                    type="number"
+                    value={editRecord.amount ?? 0}
+                    onChange={(e) => handlePaymentField('amount', parseFloat(e.target.value))}
+                    className="w-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded px-2 py-1 text-[var(--text-primary)]"
+                  />
+                ) : (
+                  <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.amount ?? 0, record.currency)}</span>
+                )}
               </div>
             </div>
 
@@ -350,27 +396,71 @@ export default function RecordCard({
               </div>
             )}
 
-            {record.allocations && record.allocations.length > 0 && (
+            {showAllocations && (
               <div className="w-full overflow-x-auto">
-                <div className="text-xs text-[var(--text-muted)] mb-1">
-                  {t('record.allocatedToInvoices')}
+                <div className="flex items-center justify-between mb-1">
+                  <div className="text-xs text-[var(--text-muted)]">{t('record.allocatedToInvoices')}</div>
+                  {isEditing && (
+                    <button
+                      type="button"
+                      onClick={addAllocation}
+                      className="text-xs text-blue-400 hover:text-blue-300"
+                    >
+                      + {t('record.addAllocation')}
+                    </button>
+                  )}
                 </div>
-                <table className="w-full text-sm text-left">
-                  <thead className="text-[var(--text-secondary)] border-b border-[var(--border-subtle)]">
-                    <tr>
-                      <th className="pb-2 font-medium">{t('record.invoiceNumber') || 'Invoice #'}</th>
-                      <th className="pb-2 font-medium text-right">{t('record.amount')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {record.allocations.map((alloc: NormalizedAllocation, idx: number) => (
-                      <tr key={idx} className="border-b border-[var(--border-subtle)] last:border-0">
-                        <td className="py-2 px-1 text-[var(--text-primary)]">{alloc.invoiceNumber}</td>
-                        <td className="py-2 px-1 text-right text-[var(--text-primary)]">{formatCurrency(alloc.amount, record.currency)}</td>
+                {displayAllocations && displayAllocations.length > 0 ? (
+                  <table className="w-full text-sm text-left">
+                    <thead className="text-[var(--text-secondary)] border-b border-[var(--border-subtle)]">
+                      <tr>
+                        <th className="pb-2 font-medium">{t('record.invoiceNumber') || 'Invoice #'}</th>
+                        <th className="pb-2 font-medium text-right">{t('record.amount')}</th>
+                        {isEditing && <th className="pb-2 w-8"></th>}
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {displayAllocations.map((alloc: NormalizedAllocation, idx: number) => (
+                        <tr key={idx} className="border-b border-[var(--border-subtle)] last:border-0">
+                          <td className="py-2 px-1 text-[var(--text-primary)]">
+                            {isEditing ? (
+                              <input
+                                type="text"
+                                value={alloc.invoiceNumber}
+                                onChange={(e) => handleAllocationChange(idx, 'invoiceNumber', e.target.value)}
+                                className="w-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded px-2 py-1 text-[var(--text-primary)]"
+                              />
+                            ) : alloc.invoiceNumber}
+                          </td>
+                          <td className="py-2 px-1 text-right text-[var(--text-primary)]">
+                            {isEditing ? (
+                              <input
+                                type="number"
+                                value={alloc.amount}
+                                onChange={(e) => handleAllocationChange(idx, 'amount', parseFloat(e.target.value))}
+                                className="w-24 bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded px-2 py-1 text-[var(--text-primary)] text-right"
+                              />
+                            ) : formatCurrency(alloc.amount, record.currency)}
+                          </td>
+                          {isEditing && (
+                            <td className="py-2 px-1 text-right">
+                              <button
+                                type="button"
+                                onClick={() => removeAllocation(idx)}
+                                aria-label={t('record.removeAllocation')}
+                                className="text-red-400 hover:text-red-300 text-xs px-1"
+                              >
+                                ✕
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="text-xs text-[var(--text-muted)] italic">{t('record.noAllocations')}</div>
+                )}
               </div>
             )}
           </div>

@@ -45,6 +45,20 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
           .select('id, full_name, position, hire_date, basic_salary, allowances, created_at')
           .eq('org_id', orgId)
 
+        // Payment history has no table the client can query directly for a
+        // unified list — it goes through /api/payments (the read path added
+        // this session), same as everything else that hits guard.ts.
+        let payments: any[] = []
+        try {
+          const res = await fetch(`/api/payments?orgId=${encodeURIComponent(orgId)}`)
+          if (res.ok) {
+            const json = await res.json()
+            payments = json.payments ?? []
+          }
+        } catch (e) {
+          console.error('payments fetch failed', e)
+        }
+
         const dateLocale = locale === 'ar' ? 'ar-AE' : 'en-AE'
         const fmtDate = (value?: string | null) =>
           value ? new Date(`${String(value).slice(0, 10)}T00:00:00`).toLocaleDateString(dateLocale) : ''
@@ -102,6 +116,25 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
           }
         }
         
+        if (payments) {
+          for (const pmt of payments) {
+            const isReceived = pmt.payment_type === 'received'
+            const recordDate = pmt.payment_date || pmt.created_at
+            const partyName =
+              pmt.contact?.name || pmt.payment_number || (locale === 'ar' ? 'طرف غير معروف' : 'Unknown party')
+            unified.push({
+              id: pmt.id,
+              type: 'Payment',
+              icon: isReceived ? '💵' : '💸',
+              title: partyName,
+              subtitle: `${isReceived ? (locale === 'ar' ? 'مستلمة' : 'Received') : (locale === 'ar' ? 'مرسلة' : 'Sent')} • ${pmt.payment_method || 'bank_transfer'} • ${fmtDate(recordDate)}`,
+              amount: Number(pmt.amount) || 0,
+              color: isReceived ? 'text-emerald-400' : 'text-rose-400',
+              rawDate: new Date(`${String(recordDate).slice(0, 10)}T00:00:00`),
+            })
+          }
+        }
+
         unified.sort((a, b) => b.rawDate.getTime() - a.rawDate.getTime())
         setRecords(unified)
       } catch (e) {
@@ -147,6 +180,7 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
           <option value="Employee">{t('records.employees')}</option>
           <option value="Asset">{t('records.assets')}</option>
           <option value="Related Party">{t('records.relatedParties')}</option>
+          <option value="Payment">{t('records.payments')}</option>
         </select>
         
         <select
