@@ -150,6 +150,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
           orgId,
           record: msg.record,
           totals: msg.recordTotals,
+          locale,
         }),
       });
       const data = await res.json().catch(() => ({}));
