@@ -242,9 +242,19 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
               </thead>
               <tbody>
                 {payments.map((p) => (
-                  <tr key={p.id} className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-white/5">
+                  <tr
+                    key={p.id}
+                    className={`border-b border-[var(--border-subtle)] last:border-0 hover:bg-white/5 ${p.voided ? 'opacity-50 grayscale' : ''}`}
+                  >
                     <td className="py-2 pr-4 text-[var(--text-secondary)]">{p.payment_date ? String(p.payment_date).slice(0, 10) : '-'}</td>
-                    <td className="py-2 pr-4 text-[var(--text-secondary)]">{p.contact?.name || p.payment_number || '-'}</td>
+                    <td className="py-2 pr-4 text-[var(--text-secondary)]">
+                      {p.contact?.name || p.payment_number || '-'}
+                      {p.voided && (
+                        <span className="ml-2 text-[10px] font-normal text-red-400 align-middle">
+                          {t('record.voided')}
+                        </span>
+                      )}
+                    </td>
                     <td className="py-2 pr-4 text-[var(--text-secondary)]">
                       {p.payment_type === 'received' ? t('record.received') : t('record.sent')}
                     </td>
@@ -275,4 +285,3 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
     </div>
   )
 }
-
