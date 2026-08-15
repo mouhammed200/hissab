@@ -116,14 +116,31 @@ export async function GET(req: Request) {
         // (017_payment_transaction_name_resolution.sql) stores the ledger
         // account id there, matching the FK. Embed accounts, not
         // bank_accounts, or PostgREST has no relationship to embed on.
-        'id, payment_number, payment_type, payment_date, amount, amount_aed, currency, payment_method, reference_number, journal_entry_id, contact:contacts(id, name), ledger_account:accounts(id, code, name)',
+        //
+        // notes is selected because it's the only place void state lives —
+        // payments has no status/void column. void_record_transaction
+        // (009/016) marks a void by appending "[VOIDED: <reason>]" to notes.
+        // Derived into a `voided` boolean below so every consumer of this
+        // route doesn't have to know/repeat that string-matching convention.
+        'id, payment_number, payment_type, payment_date, amount, amount_aed, currency, payment_method, reference_number, journal_entry_id, notes, contact:contacts(id, name), ledger_account:accounts(id, code, name)',
       )
       .eq('org_id', orgId)
       .order('payment_date', { ascending: false })
       .limit(limit)
 
     if (error) throw error
-    return NextResponse.json({ payments: data ?? [] })
+
+    // Derive `voided` from the notes marker here, once, instead of leaving
+    // every consumer (RecordsTab, ReportsTab, any future one) to repeat the
+    // [VOIDED: ...] string-matching against a free-text field.
+    const payments = (data ?? []).map((p: Record<string, unknown>) => {
+      const notes = typeof p.notes === 'string' ? p.notes : ''
+      const voided = /\[VOIDED:/i.test(notes)
+      const { notes: _notes, ...rest } = p
+      return { ...rest, voided }
+    })
+
+    return NextResponse.json({ payments })
   } catch (error) {
     const message = (error as { message?: string })?.message || 'Failed to load payments'
     console.error('payments GET failed', error)
