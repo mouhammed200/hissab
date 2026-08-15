@@ -40,11 +40,12 @@ export async function POST(request: NextRequest) {
     if (typeof body.message !== 'string' || body.message.length > MAX_MESSAGE_CHARS) {
       return json({ error: 'Message is missing or too large' }, { status: 413 })
     }
-    const { message, orgId, chatHistory, fileData } = body as {
+    const { message, orgId, chatHistory, fileData, locale } = body as {
       message: string
       orgId: string
       chatHistory?: Array<{ role: 'user' | 'model'; content: string }>
       fileData?: { mimeType: string; data: string }
+      locale?: 'en' | 'ar'
     }
 
     if (!message || !orgId) {
@@ -83,6 +84,7 @@ export async function POST(request: NextRequest) {
       },
       chatHistory,
       fileData,
+      locale: locale === 'ar' ? 'ar' : 'en',
     })
 
     if (!result.success) {
