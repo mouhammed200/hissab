@@ -140,7 +140,7 @@ export async function POST(request: NextRequest) {
 
     // 7. Validate per record type. Errors block confirmation in the UI;
     //    warnings are shown on the card so the user can correct before posting.
-    const validation = validateRecord(record)
+    const validation = validateRecord(record, locale === 'ar' ? 'ar' : 'en')
 
     const textResponse =
       record.queryResponse || (rawData.explanation as string | undefined) || record.notes || ''
