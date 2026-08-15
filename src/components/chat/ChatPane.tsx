@@ -83,7 +83,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
       const parsedRecord: ParsedRecord | undefined = resJson.data ? normalizeRecord(resJson.data) : undefined;
       const transaction = Boolean(parsedRecord && isTransaction(parsedRecord.type));
 
-      const validation = resJson.validation ?? (parsedRecord ? validateRecord(parsedRecord) : undefined);
+      const validation = resJson.validation ?? (parsedRecord ? validateRecord(parsedRecord, locale) : undefined);
       const totals: RecordTotals | undefined =
         parsedRecord && hasItemizedTotals(parsedRecord.type) ? computeTotals(parsedRecord) : undefined;
 
@@ -126,7 +126,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
     if (!msg?.record) return;
 
     // Never let the user confirm a record the server will reject.
-    const preflight = validateRecord(msg.record);
+    const preflight = validateRecord(msg.record, locale);
     if (!preflight.valid) {
       setMessages(prev => prev.map(m =>
         m.id === messageId ? { ...m, recordErrors: preflight.errors, recordStatus: 'pending' } : m
@@ -259,7 +259,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
         // Re-run the full normalizer on edits so a manually edited record is
         // held to exactly the same contract as a freshly parsed one.
         const normalized = normalizeRecord(updatedRecord);
-        const revalidated = validateRecord(normalized);
+        const revalidated = validateRecord(normalized, locale);
         return {
           ...msg,
           record: normalized,
