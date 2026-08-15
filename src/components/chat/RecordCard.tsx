@@ -225,19 +225,19 @@ export default function RecordCard({
         {record.type === 'employee' && (
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div>
-              <span className="text-[var(--text-muted)] block">Name</span>
-              <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.name || 'Employee'}</span>
+              <span className="text-[var(--text-muted)] block">{t('record.name')}</span>
+              <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.name || t('record.employeeFallback')}</span>
             </div>
             <div>
-              <span className="text-[var(--text-muted)] block">Position</span>
-              <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.position || 'Staff'}</span>
+              <span className="text-[var(--text-muted)] block">{t('record.position')}</span>
+              <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.position || t('record.staffFallback')}</span>
             </div>
             <div>
-              <span className="text-[var(--text-muted)] block">Basic Salary</span>
+              <span className="text-[var(--text-muted)] block">{t('record.basicSalary')}</span>
               <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.basicSalary ?? 0, record.currency)}</span>
             </div>
             <div>
-              <span className="text-[var(--text-muted)] block">Allowances</span>
+              <span className="text-[var(--text-muted)] block">{t('record.allowances')}</span>
               <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.allowances ?? 0, record.currency)}</span>
             </div>
           </div>
@@ -245,20 +245,20 @@ export default function RecordCard({
 
         {record.type === 'asset' && (
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><span className="text-[var(--text-muted)] block">Name</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.assetName || 'Asset'}</span></div>
-            <div><span className="text-[var(--text-muted)] block">Supplier</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.supplier || 'Supplier'}</span></div>
-            <div><span className="text-[var(--text-muted)] block">Cost</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.purchaseCost ?? 0, record.currency)}</span></div>
-            <div><span className="text-[var(--text-muted)] block">Useful Life</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.usefulLifeYears ?? 5} years</span></div>
+            <div><span className="text-[var(--text-muted)] block">{t('record.assetName')}</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.assetName || t('record.assetFallback')}</span></div>
+            <div><span className="text-[var(--text-muted)] block">{t('record.supplier')}</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.supplier || t('record.supplierFallback')}</span></div>
+            <div><span className="text-[var(--text-muted)] block">{t('record.cost')}</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.purchaseCost ?? 0, record.currency)}</span></div>
+            <div><span className="text-[var(--text-muted)] block">{t('record.usefulLife')}</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.usefulLifeYears ?? 5} {t('record.years')}</span></div>
           </div>
         )}
 
         {record.type === 'relatedParty' && (
           <div className="grid grid-cols-2 gap-4 text-sm">
-            <div><span className="text-[var(--text-muted)] block">Party</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{partyDisplayName}</span></div>
-            <div><span className="text-[var(--text-muted)] block">Relationship</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.relationship || 'Related Entity'}</span></div>
-            <div><span className="text-[var(--text-muted)] block">Transaction</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.transactionType || 'Other'}</span></div>
-            <div><span className="text-[var(--text-muted)] block">Amount</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.amount ?? 0, record.currency)}</span></div>
-            <div><span className="text-[var(--text-muted)] block">Arms-length</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{(record.isArmsLength ?? true) ? 'Yes' : 'No'}</span></div>
+            <div><span className="text-[var(--text-muted)] block">{t('record.party')}</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{partyDisplayName}</span></div>
+            <div><span className="text-[var(--text-muted)] block">{t('record.relationship')}</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.relationship || t('record.relatedEntityFallback')}</span></div>
+            <div><span className="text-[var(--text-muted)] block">{t('record.transactionType')}</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.transactionType || t('record.otherFallback')}</span></div>
+            <div><span className="text-[var(--text-muted)] block">{t('record.amount')}</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.amount ?? 0, record.currency)}</span></div>
+            <div><span className="text-[var(--text-muted)] block">{t('record.armsLength')}</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{(record.isArmsLength ?? true) ? t('record.yes') : t('record.no')}</span></div>
           </div>
         )}
       </div>
