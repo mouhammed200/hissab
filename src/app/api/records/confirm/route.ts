@@ -13,6 +13,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json()
     const { orgId } = body
+    const locale: 'en' | 'ar' = body.locale === 'ar' ? 'ar' : 'en'
 
     const guard = await requireOrgAccess(orgId, { roles: WRITE_ROLES })
     if (!guard.ok) return guard.response
@@ -27,7 +28,7 @@ export async function POST(req: Request) {
     // Re-normalize server-side. The client payload is never trusted, and this
     // guarantees the posted record is shaped exactly like the reviewed one.
     const record = normalizeRecord(body.record)
-    const validation = validateRecord(record)
+    const validation = validateRecord(record, locale)
 
     if (!validation.valid) {
       // Hard stop. Previously a record with no items fell through to
