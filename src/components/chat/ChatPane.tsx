@@ -69,7 +69,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
       const response = await fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: content, orgId, chatHistory, fileData })
+        body: JSON.stringify({ message: content, orgId, chatHistory, fileData, locale })
       });
       
       const resJson = await response.json();
