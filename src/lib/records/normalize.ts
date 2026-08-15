@@ -404,85 +404,103 @@ export function computeTotalsInAed(record: NormalizedRecord): RecordTotals | nul
 }
 
 /** Per-type validation. Errors block posting; warnings are surfaced in the UI. */
-export function validateRecord(record: NormalizedRecord): ValidationResult {
+export function validateRecord(record: NormalizedRecord, locale: 'en' | 'ar' = 'en'): ValidationResult {
+  const ar = locale === 'ar'
   const errors: string[] = []
   const warnings: string[] = [...(record._normalizerWarnings ?? [])]
 
   if (!record.type) {
-    return { valid: false, errors: ['Record type is missing.'], warnings }
+    return { valid: false, errors: [ar ? 'نوع السجل مفقود.' : 'Record type is missing.'], warnings }
   }
 
   switch (record.type) {
     case 'sale':
     case 'purchase': {
+      const typeLabel = ar
+        ? (record.type === 'sale' ? 'المبيعات' : 'المشتريات')
+        : record.type
       if (!record.items.length) {
         errors.push(
-          `A ${record.type} must have at least one line item. The assistant returned a record with no amount, so nothing can be posted.`,
+          ar
+            ? `يجب أن يحتوي سجل ${typeLabel} على بند واحد على الأقل. أعاد المساعد سجلاً بدون مبلغ، لذا لا يمكن ترحيل شيء.`
+            : `A ${record.type} must have at least one line item. The assistant returned a record with no amount, so nothing can be posted.`,
         )
         break
       }
       const totals = computeTotals(record)
       if (totals.total <= 0) {
         errors.push(
-          `This ${record.type} totals 0.00 ${record.currency}. Add a quantity and price before confirming.`,
+          ar
+            ? `إجمالي ${typeLabel} هذا هو 0.00 ${record.currency}. أضف الكمية والسعر قبل التأكيد.`
+            : `This ${record.type} totals 0.00 ${record.currency}. Add a quantity and price before confirming.`,
         )
       }
       if (!record.party) {
-        warnings.push(`No ${record.type === 'sale' ? 'customer' : 'supplier'} name was detected.`)
+        warnings.push(
+          ar
+            ? `لم يتم التعرف على اسم ${record.type === 'sale' ? 'العميل' : 'المورد'}.`
+            : `No ${record.type === 'sale' ? 'customer' : 'supplier'} name was detected.`,
+        )
       }
       if (record.currency !== 'AED' && computeTotalsInAed(record) === null) {
         errors.push(
-          `This ${record.currency} ${record.type} has no AED conversion. An exchange rate is required before posting to the ledger.`,
+          ar
+            ? `${typeLabel} بعملة ${record.currency} هذا بدون تحويل إلى الدرهم. سعر الصرف مطلوب قبل الترحيل إلى دفتر الأستاذ.`
+            : `This ${record.currency} ${record.type} has no AED conversion. An exchange rate is required before posting to the ledger.`,
         )
       }
       if (record.type === 'sale') {
         const aedTotal = (computeTotalsInAed(record) ?? totals).total
         if (aedTotal > 10000 && !record.buyerTRN) {
-          warnings.push('FTA requires the buyer TRN on tax invoices above AED 10,000.')
+          warnings.push(
+            ar
+              ? 'تتطلب الهيئة الاتحادية للضرائب رقم التسجيل الضريبي للمشتري على الفواتير الضريبية التي تتجاوز 10,000 درهم.'
+              : 'FTA requires the buyer TRN on tax invoices above AED 10,000.',
+          )
         }
       }
       break
     }
     case 'employee': {
-      if (!record.name) errors.push('An employee record needs a name.')
+      if (!record.name) errors.push(ar ? 'يحتاج سجل الموظف إلى اسم.' : 'An employee record needs a name.')
       const salary = (record.basicSalary ?? 0) + (record.allowances ?? 0)
-      if (salary <= 0) errors.push('An employee record needs a basic salary greater than 0.')
-      if (!record.hireDate) warnings.push('No hire date was detected; gratuity accrual will start from today.')
+      if (salary <= 0) errors.push(ar ? 'يحتاج سجل الموظف إلى راتب أساسي أكبر من 0.' : 'An employee record needs a basic salary greater than 0.')
+      if (!record.hireDate) warnings.push(ar ? 'لم يتم تحديد تاريخ التعيين؛ سيبدأ استحقاق مكافأة نهاية الخدمة من اليوم.' : 'No hire date was detected; gratuity accrual will start from today.')
       break
     }
     case 'asset': {
-      if (!record.assetName) errors.push('An asset record needs a name.')
+      if (!record.assetName) errors.push(ar ? 'يحتاج سجل الأصل إلى اسم.' : 'An asset record needs a name.')
       if (!record.purchaseCost || record.purchaseCost <= 0) {
-        errors.push('An asset record needs a purchase cost greater than 0.')
+        errors.push(ar ? 'يحتاج سجل الأصل إلى تكلفة شراء أكبر من 0.' : 'An asset record needs a purchase cost greater than 0.')
       }
       if (!record.usefulLifeYears || record.usefulLifeYears <= 0) {
-        errors.push('An asset record needs a useful life in years.')
+        errors.push(ar ? 'يحتاج سجل الأصل إلى عمر إنتاجي بالسنوات.' : 'An asset record needs a useful life in years.')
       }
       if ((record.salvageValue ?? 0) > (record.purchaseCost ?? 0)) {
-        errors.push('Salvage value cannot exceed the purchase cost.')
+        errors.push(ar ? 'لا يمكن أن تتجاوز القيمة التخريدية تكلفة الشراء.' : 'Salvage value cannot exceed the purchase cost.')
       }
       break
     }
     case 'relatedParty': {
-      if (!record.party) errors.push('A related-party record needs the counterparty name.')
+      if (!record.party) errors.push(ar ? 'يحتاج سجل الطرف ذي الصلة إلى اسم الطرف المقابل.' : 'A related-party record needs the counterparty name.')
       if (!record.amount || record.amount <= 0) {
-        errors.push('A related-party record needs an amount greater than 0.')
+        errors.push(ar ? 'يحتاج سجل الطرف ذي الصلة إلى مبلغ أكبر من 0.' : 'A related-party record needs an amount greater than 0.')
       }
       if (record.isArmsLength === undefined) {
-        warnings.push("Arm's-length status was not stated; defaulting to yes. Confirm before filing.")
+        warnings.push(ar ? 'لم يُذكر وضع الشروط التجارية العادلة؛ سيتم الافتراض بأنه نعم. يرجى التأكيد قبل التقديم.' : "Arm's-length status was not stated; defaulting to yes. Confirm before filing.")
       }
       break
     }
     case 'query': {
-      if (!record.queryResponse) warnings.push('The assistant returned a query with no answer text.')
+      if (!record.queryResponse) warnings.push(ar ? 'أعاد المساعد استعلاماً بدون نص إجابة.' : 'The assistant returned a query with no answer text.')
       break
     }
     case 'action': {
-      if (!record.actionType) errors.push('An action record needs an actionType.')
+      if (!record.actionType) errors.push(ar ? 'يحتاج سجل الإجراء إلى actionType.' : 'An action record needs an actionType.')
       break
     }
     default:
-      errors.push(`Unsupported record type "${record.type}".`)
+      errors.push(ar ? `نوع سجل غير مدعوم "${record.type}".` : `Unsupported record type "${record.type}".`)
   }
 
   return { valid: errors.length === 0, errors, warnings }
