@@ -64,12 +64,21 @@
     "supplierFallback": "Supplier",
     "relatedEntityFallback": "Related Entity",
     "otherFallback": "Other",
+    "counterpartyFallback": "Counterparty not specified",
+    "direction": "Direction",
+    "sent": "Sent",
+    "received": "Received",
+    "paymentMethod": "Method",
+    "bankAccount": "Bank account",
+    "selectBankAccount": "-- Select an account --",
+    "allocatedToInvoices": "Allocated to invoices",
     "types": {
       "sale": "Sale",
       "purchase": "Purchase",
       "employee": "Employee",
       "asset": "Fixed Asset",
-      "related_party": "Related Party"
+      "related_party": "Related Party",
+      "payment": "Payment"
     }
   },
   "panel": {

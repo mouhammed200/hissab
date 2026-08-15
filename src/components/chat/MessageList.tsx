@@ -27,6 +27,8 @@ export interface ChatMessage {
 }
 
 interface MessageListProps {
+  /** Needed so RecordCard can look up the org's bank account list for payments. */
+  orgId: string;
   messages: ChatMessage[];
   onConfirmRecord: (messageId: string) => void;
   onVoidRecord: (messageId: string, reason?: string) => void;
@@ -54,6 +56,7 @@ const formatTime = (date: Date, locale: string) => {
 };
 
 export default function MessageList({
+  orgId,
   messages,
   onConfirmRecord,
   onVoidRecord,
@@ -108,6 +111,7 @@ export default function MessageList({
                 {msg.record && (
                   <div className="w-full mt-1">
                     <RecordCard
+                      orgId={orgId}
                       record={msg.record}
                       totals={msg.recordTotals}
                       status={msg.recordStatus || 'pending'}

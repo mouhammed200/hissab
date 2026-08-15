@@ -143,7 +143,8 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
       // shipped (already in memory client-side); every new message gets one
       // at parse time above.
       const idempotencyKey = msg.idempotencyKey ?? crypto.randomUUID();
-      const res = await fetch('/api/records/confirm', {
+      const isPayment = msg.record.type === 'payment';
+      const res = await fetch(isPayment ? '/api/payments' : '/api/records/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
         body: JSON.stringify({
@@ -174,7 +175,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
 
       setMessages(prev => prev.map(m =>
         m.id === messageId
-          ? { ...m, dbRecordId: data.recordId, recordErrors: [], recordWarnings: data.warnings ?? m.recordWarnings }
+          ? { ...m, dbRecordId: data.recordId ?? data.paymentId, recordErrors: [], recordWarnings: data.warnings ?? m.recordWarnings }
           : m
       ));
       onRecordConfirmed?.();
@@ -220,6 +221,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
           employee: { sourceType: 'employee', idField: 'employeeId' },
           asset: { sourceType: 'asset', idField: 'assetId' },
           relatedParty: { sourceType: 'relatedParty', idField: 'relatedPartyId' },
+          payment: { sourceType: 'payment', idField: 'paymentId' },
         };
         const mapping = msg.record?.type ? VOID_FIELD_BY_RECORD_TYPE[msg.record.type] : undefined;
         // Fall back to legacy invoice-only behavior if the record type is
@@ -332,6 +334,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
 
       {/* Message List */}
       <MessageList 
+        orgId={orgId}
         messages={messages}
         onConfirmRecord={handleConfirmRecord}
         onVoidRecord={handleVoidRecord}

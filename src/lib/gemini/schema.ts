@@ -12,7 +12,7 @@ export const RECORD_RESPONSE_SCHEMA = {
   properties: {
     type: {
       type: 'string' as const,
-      enum: ['sale', 'purchase', 'employee', 'asset', 'relatedParty', 'query'],
+      enum: ['sale', 'purchase', 'employee', 'asset', 'relatedParty', 'payment', 'query'],
     },
     subtype: {
       type: 'string' as const,
@@ -87,6 +87,28 @@ export const RECORD_RESPONSE_SCHEMA = {
     // can rebuild a single line instead of producing a detail-less record.
     total: { type: 'number' as const },
     isArmsLength: { type: 'boolean' as const },
+    // Payment fields. Reuses "party" (counterparty), "amount", "currency",
+    // "exchangeRate", "date" from above — a payment does not re-declare them.
+    paymentType: {
+      type: 'string' as const,
+      enum: ['received', 'sent'],
+    },
+    paymentMethod: {
+      type: 'string' as const,
+      enum: ['bank_transfer', 'cheque', 'cash', 'card'],
+    },
+    bankAccountName: { type: 'string' as const },
+    allocations: {
+      type: 'array' as const,
+      items: {
+        type: 'object' as const,
+        properties: {
+          invoiceNumber: { type: 'string' as const },
+          amount: { type: 'number' as const },
+        },
+        required: ['invoiceNumber', 'amount'],
+      },
+    },
     // Query response
     queryResponse: { type: 'string' as const },
     // Meta
@@ -107,5 +129,6 @@ export const REQUIRED_FIELDS_BY_TYPE: Record<string, string[]> = {
   employee: ['name', 'basicSalary'],
   asset: ['assetName', 'purchaseCost', 'usefulLifeYears'],
   relatedParty: ['party', 'amount'],
+  payment: ['party', 'amount', 'paymentType'],
   query: ['queryResponse'],
 }

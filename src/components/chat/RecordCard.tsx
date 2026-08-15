@@ -2,7 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 import { useLocale } from '@/lib/i18n/locale';
-import type { NormalizedItem, NormalizedRecord, RecordTotals } from '@/lib/records/normalize';
+import type { NormalizedAllocation, NormalizedItem, NormalizedRecord, RecordTotals } from '@/lib/records/normalize';
+import { createClient } from '@/lib/supabase/client';
 
 // Record shape and totals are defined once, in the shared normalizer, so the
 // card can never disagree with what the posting route will actually write.
@@ -11,6 +12,8 @@ export type ParsedRecord = NormalizedRecord
 export type { RecordTotals }
 
 interface RecordCardProps {
+  /** Needed to look up the org's bank account list for the payment picker. */
+  orgId: string;
   record: ParsedRecord;
   totals?: RecordTotals;
   status: 'pending' | 'confirmed' | 'voided' | 'editing';
@@ -33,6 +36,7 @@ const formatCurrency = (amount: number, currency: string = 'AED') => {
 };
 
 export default function RecordCard({
+  orgId,
   record,
   totals,
   status,
@@ -51,6 +55,41 @@ export default function RecordCard({
   const [showVoidModal, setShowVoidModal] = useState(false);
   const [voidReason, setVoidReason] = useState('');
 
+  // Bank accounts are a small controlled org-level list set up by an
+  // accountant — chat extraction only supplies a free-text name (if any),
+  // never an id, so the card resolves the real list here and lets the user
+  // pick from it rather than guessing.
+  const [bankAccounts, setBankAccounts] = useState<{ id: string; accountName: string; label: string }[]>([]);
+  useEffect(() => {
+    if (record.type !== 'payment' || !orgId) return;
+    let cancelled = false;
+    const supabase = createClient();
+    supabase
+      .from('bank_accounts')
+      .select('id, bank_name, account_name')
+      .eq('org_id', orgId)
+      .eq('is_active', true)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setBankAccounts(
+          data.map((a: { id: string; bank_name: string; account_name: string }) => ({
+            id: a.id,
+            accountName: a.account_name,
+            label: `${a.account_name} — ${a.bank_name}`,
+          })),
+        );
+      });
+    return () => { cancelled = true; };
+  }, [orgId, record.type]);
+
+  // Picking a bank account writes straight through onSaveEdit even outside
+  // edit mode: it's a required field the model can never fill in reliably,
+  // so it behaves like part of the base card rather than something gated
+  // behind the Edit button.
+  const handleBankAccountChange = (accountName: string) => {
+    onSaveEdit({ ...record, bankAccountName: accountName || undefined });
+  };
+
   const getIconAndLabel = () => {
     switch (record.type) {
       case 'sale': return { icon: '💰', label: locale === 'ar' ? 'مبيعات' : 'Sale' };
@@ -58,6 +97,7 @@ export default function RecordCard({
       case 'employee': return { icon: '👤', label: locale === 'ar' ? 'موظف' : 'Employee' };
       case 'asset': return { icon: '🏢', label: locale === 'ar' ? 'أصل ثابت' : 'Fixed Asset' };
       case 'relatedParty': return { icon: '🔗', label: locale === 'ar' ? 'طرف ذو صلة' : 'Related Party' };
+      case 'payment': return { icon: '💵', label: locale === 'ar' ? 'دفعة' : 'Payment' };
       default: return { icon: '📄', label: locale === 'ar' ? 'سجل' : 'Record' };
     }
   };
@@ -77,9 +117,11 @@ export default function RecordCard({
         ? locale === 'ar'
           ? 'مورد غير محدد'
           : 'Supplier not specified'
-        : locale === 'ar'
-          ? 'غير مسمى'
-          : 'Unnamed';
+        : record.type === 'payment'
+          ? t('record.counterpartyFallback')
+          : locale === 'ar'
+            ? 'غير مسمى'
+            : 'Unnamed';
 
   const partyDisplayName =
     record.party ||
@@ -259,6 +301,78 @@ export default function RecordCard({
             <div><span className="text-[var(--text-muted)] block">{t('record.transactionType')}</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.transactionType || t('record.otherFallback')}</span></div>
             <div><span className="text-[var(--text-muted)] block">{t('record.amount')}</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.amount ?? 0, record.currency)}</span></div>
             <div><span className="text-[var(--text-muted)] block">{t('record.armsLength')}</span><span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{(record.isArmsLength ?? true) ? t('record.yes') : t('record.no')}</span></div>
+          </div>
+        )}
+
+        {record.type === 'payment' && (
+          <div className="flex flex-col gap-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="text-[var(--text-muted)] block">{t('record.party')}</span>
+                <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{partyDisplayName}</span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block">{t('record.direction')}</span>
+                <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>
+                  {record.paymentType === 'sent' ? t('record.sent') : t('record.received')}
+                </span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block">{t('record.paymentMethod')}</span>
+                <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.paymentMethod || 'bank_transfer'}</span>
+              </div>
+              <div>
+                <span className="text-[var(--text-muted)] block">{t('record.amount')}</span>
+                <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.amount ?? 0, record.currency)}</span>
+              </div>
+            </div>
+
+            {/* Bank account is a controlled org-level list, never free text
+                the model should guess — this dropdown is the source of truth. */}
+            {!isVoided && status !== 'confirmed' ? (
+              <div>
+                <span className="text-[var(--text-muted)] block text-sm mb-1">{t('record.bankAccount')}</span>
+                <select
+                  value={record.bankAccountName || ''}
+                  onChange={(e) => handleBankAccountChange(e.target.value)}
+                  className="w-full bg-[var(--bg-secondary)] border border-[var(--border-subtle)] rounded px-2 py-1.5 text-[var(--text-primary)] text-sm"
+                >
+                  <option value="">{t('record.selectBankAccount')}</option>
+                  {bankAccounts.map((acc) => (
+                    <option key={acc.id} value={acc.accountName}>{acc.label}</option>
+                  ))}
+                </select>
+              </div>
+            ) : (
+              <div className="text-sm">
+                <span className="text-[var(--text-muted)] block">{t('record.bankAccount')}</span>
+                <span className="text-[var(--text-primary)]">{record.bankAccountName || '—'}</span>
+              </div>
+            )}
+
+            {record.allocations && record.allocations.length > 0 && (
+              <div className="w-full overflow-x-auto">
+                <div className="text-xs text-[var(--text-muted)] mb-1">
+                  {t('record.allocatedToInvoices')}
+                </div>
+                <table className="w-full text-sm text-left">
+                  <thead className="text-[var(--text-secondary)] border-b border-[var(--border-subtle)]">
+                    <tr>
+                      <th className="pb-2 font-medium">{t('record.invoiceNumber') || 'Invoice #'}</th>
+                      <th className="pb-2 font-medium text-right">{t('record.amount')}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {record.allocations.map((alloc: NormalizedAllocation, idx: number) => (
+                      <tr key={idx} className="border-b border-[var(--border-subtle)] last:border-0">
+                        <td className="py-2 px-1 text-[var(--text-primary)]">{alloc.invoiceNumber}</td>
+                        <td className="py-2 px-1 text-right text-[var(--text-primary)]">{formatCurrency(alloc.amount, record.currency)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </div>
         )}
       </div>

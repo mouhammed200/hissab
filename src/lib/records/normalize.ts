@@ -25,8 +25,16 @@ export type RecordType =
   | 'employee'
   | 'asset'
   | 'relatedParty'
+  | 'payment'
   | 'query'
   | 'action'
+
+export type PaymentType = 'received' | 'sent'
+
+export interface NormalizedAllocation {
+  invoiceNumber: string
+  amount: number
+}
 
 export type VatItemCategory = 'standard' | 'zero' | 'exempt'
 
@@ -76,6 +84,11 @@ export interface NormalizedRecord {
   transactionType?: string
   amount?: number
   isArmsLength?: boolean
+  // Payment fields. Reuses party/amount/currency/exchangeRate/date above.
+  paymentType?: PaymentType
+  paymentMethod?: string
+  bankAccountName?: string
+  allocations?: NormalizedAllocation[]
   queryResponse?: string
   actionType?: string
   actionPayload?: Record<string, unknown>
@@ -106,7 +119,19 @@ export const TRANSACTION_TYPES: RecordType[] = [
   'employee',
   'asset',
   'relatedParty',
+  'payment',
 ]
+
+function normalizeAllocation(raw: unknown, index: number, warnings: string[]): NormalizedAllocation | null {
+  const item = (raw ?? {}) as Record<string, unknown>
+  const invoiceNumber = toText(item.invoiceNumber) ?? toText(item.invoice_number)
+  const amount = toPositiveNumber(item.amount, undefined)
+  if (!invoiceNumber || amount === undefined || amount <= 0) {
+    warnings.push(`Allocation ${index + 1} was missing an invoice number or amount and was dropped.`)
+    return null
+  }
+  return { invoiceNumber, amount: round2(amount) }
+}
 
 function toNumber(value: unknown, fallback: number | undefined = undefined): number | undefined {
   if (value === null || value === undefined || value === '') return fallback
@@ -278,6 +303,14 @@ export function normalizeRecord(input: unknown): NormalizedRecord {
     transactionType: toText(raw.transactionType),
     amount: toPositiveNumber(raw.amount, undefined),
     isArmsLength: typeof raw.isArmsLength === 'boolean' ? raw.isArmsLength : undefined,
+    paymentType: (toText(raw.paymentType) as PaymentType) ?? undefined,
+    paymentMethod: toText(raw.paymentMethod),
+    bankAccountName: toText(raw.bankAccountName),
+    allocations: Array.isArray(raw.allocations)
+      ? (raw.allocations
+          .map((a, i) => normalizeAllocation(a, i, warnings))
+          .filter((a): a is NormalizedAllocation => a !== null))
+      : undefined,
     queryResponse: toText(raw.queryResponse),
     actionType: toText(raw.actionType),
     actionPayload: (raw.actionPayload as Record<string, unknown>) ?? undefined,
@@ -345,6 +378,22 @@ export function normalizeRecord(input: unknown): NormalizedRecord {
   if (type === 'employee') {
     if (record.allowances === undefined) record.allowances = 0
     if (!record.contractType) record.contractType = 'unlimited'
+  }
+
+  if (type === 'payment') {
+    if (record.paymentType !== 'received' && record.paymentType !== 'sent') {
+      record.paymentType = 'received'
+      warnings.push('Payment direction was not clear; defaulted to "received". Review before confirming.')
+    }
+    if (!record.paymentMethod) record.paymentMethod = 'bank_transfer'
+    if (record.allocations && record.allocations.length && record.amount !== undefined) {
+      const allocatedTotal = round2(record.allocations.reduce((sum, a) => sum + a.amount, 0))
+      if (allocatedTotal > record.amount + 0.01) {
+        warnings.push(
+          `Allocations total ${allocatedTotal} ${currency}, which exceeds the payment amount of ${record.amount} ${currency}. Adjust before confirming.`,
+        )
+      }
+    }
   }
 
   record.items = items
@@ -488,6 +537,29 @@ export function validateRecord(record: NormalizedRecord, locale: 'en' | 'ar' = '
       }
       if (record.isArmsLength === undefined) {
         warnings.push(ar ? 'لم يُذكر وضع الشروط التجارية العادلة؛ سيتم الافتراض بأنه نعم. يرجى التأكيد قبل التقديم.' : "Arm's-length status was not stated; defaulting to yes. Confirm before filing.")
+      }
+      break
+    }
+    case 'payment': {
+      if (!record.party) {
+        errors.push(ar ? 'يحتاج سجل الدفع إلى اسم الطرف المقابل.' : 'A payment record needs the counterparty name.')
+      }
+      if (!record.amount || record.amount <= 0) {
+        errors.push(ar ? 'يحتاج سجل الدفع إلى مبلغ أكبر من 0.' : 'A payment record needs an amount greater than 0.')
+      }
+      if (record.paymentType !== 'received' && record.paymentType !== 'sent') {
+        errors.push(ar ? 'يجب أن يكون اتجاه الدفع "مستلم" أو "مرسل".' : 'A payment record needs a direction: received or sent.')
+      }
+      if (!record.bankAccountName) {
+        errors.push(ar ? 'يجب اختيار حساب بنكي قبل ترحيل الدفعة.' : 'A bank account must be selected before this payment can be posted.')
+      }
+      const allocatedTotal = round2((record.allocations ?? []).reduce((sum, a) => sum + a.amount, 0))
+      if (record.amount !== undefined && allocatedTotal > record.amount + 0.01) {
+        errors.push(
+          ar
+            ? `مجموع التخصيصات ${allocatedTotal} يتجاوز مبلغ الدفع ${record.amount}.`
+            : `Allocations total ${allocatedTotal} which exceeds the payment amount of ${record.amount}.`,
+        )
       }
       break
     }

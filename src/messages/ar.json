@@ -64,12 +64,21 @@
     "supplierFallback": "مورد",
     "relatedEntityFallback": "كيان ذو صلة",
     "otherFallback": "أخرى",
+    "counterpartyFallback": "طرف مقابل غير محدد",
+    "direction": "الاتجاه",
+    "sent": "مرسلة",
+    "received": "مستلمة",
+    "paymentMethod": "طريقة الدفع",
+    "bankAccount": "الحساب البنكي",
+    "selectBankAccount": "-- اختر حساباً --",
+    "allocatedToInvoices": "مخصصة للفواتير",
     "types": {
       "sale": "بيع",
       "purchase": "شراء",
       "employee": "موظف",
       "asset": "أصل ثابت",
-      "related_party": "طرف ذو صلة"
+      "related_party": "طرف ذو صلة",
+      "payment": "دفعة"
     }
   },
   "panel": {
