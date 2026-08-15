@@ -131,6 +131,10 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
               amount: Number(pmt.amount) || 0,
               color: isReceived ? 'text-emerald-400' : 'text-rose-400',
               rawDate: new Date(`${String(recordDate).slice(0, 10)}T00:00:00`),
+              // /api/payments derives this from the `[VOIDED: ...]` marker in
+              // notes (payments has no status column) — surfaced here so a
+              // voided payment doesn't look identical to an active one.
+              voided: Boolean(pmt.voided),
             })
           }
         }
@@ -209,10 +213,24 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
           <div className="text-[var(--text-muted)] text-sm p-4 text-center">{t('records.loading')}</div>
         ) : filteredRecords.length > 0 ? (
           filteredRecords.map((record) => (
-            <div key={record.id} role="button" tabIndex={0} aria-label={`${record.type}: ${record.title}`} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click() }} className="glass-hover rounded-lg p-3 sm:p-4 flex items-center gap-3 sm:gap-4 cursor-pointer transition-all">
+            <div
+              key={record.id}
+              role="button"
+              tabIndex={0}
+              aria-label={`${record.type}: ${record.title}${record.voided ? ` (${t('record.voided')})` : ''}`}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') e.currentTarget.click() }}
+              className={`glass-hover rounded-lg p-3 sm:p-4 flex items-center gap-3 sm:gap-4 cursor-pointer transition-all ${record.voided ? 'opacity-50 grayscale' : ''}`}
+            >
               <span className="text-lg sm:text-xl">{record.icon}</span>
               <div className="flex-1 min-w-0">
-                <p className="text-xs sm:text-sm font-medium text-[var(--text-primary)] truncate">{record.title}</p>
+                <p className="text-xs sm:text-sm font-medium text-[var(--text-primary)] truncate">
+                  {record.title}
+                  {record.voided && (
+                    <span className="ml-2 text-[10px] sm:text-xs font-normal text-red-400 align-middle">
+                      {t('record.voided')}
+                    </span>
+                  )}
+                </p>
                 <p className="text-[10px] sm:text-xs text-[var(--text-muted)] truncate">{record.subtitle}</p>
               </div>
               <p className={`text-xs sm:text-sm font-semibold shrink-0 ${record.color}`}>{formatCurrency(record.amount)}</p>
