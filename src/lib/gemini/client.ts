@@ -12,6 +12,7 @@ export interface GeminiRequest {
   contextData?: Record<string, unknown>
   chatHistory?: Array<{ role: 'user' | 'model'; content: string }>
   fileData?: { mimeType: string; data: string }
+  locale?: 'en' | 'ar'
 }
 
 export interface GeminiResponse {
@@ -151,7 +152,7 @@ async function withRetry<T>(
 
 export async function parseTransaction(req: GeminiRequest): Promise<GeminiResponse> {
   try {
-    const systemPrompt = getSystemPrompt()
+    const systemPrompt = getSystemPrompt(req.locale)
 
     // Build contents array with chat history
     const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> }> = []
