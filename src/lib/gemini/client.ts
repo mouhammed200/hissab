@@ -203,3 +203,58 @@ export async function parseTransaction(req: GeminiRequest): Promise<GeminiRespon
     return { success: false, error: message }
   }
 }
+
+// Free-chat mode: the structured extraction engine (schema + normalize +
+// validate) is frozen, not removed — parseTransaction above is untouched and
+// can be switched back to at any time. This is a deliberately separate
+// function, not a branch inside parseTransaction, so the forced-JSON path
+// keeps working exactly as it always has for anyone not in free mode.
+//
+// No responseMimeType, no responseSchema: Gemini replies in plain prose, the
+// same way it does when explaining itself in chat — which is the one mode
+// that held up under testing. contextData is still attached for queries
+// ("what's my VAT?"), since that grounding is unrelated to the JSON forcing.
+export async function chatFreely(req: GeminiRequest): Promise<GeminiResponse> {
+  try {
+    const systemPrompt = getSystemPrompt(req.locale)
+
+    const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> }> = []
+
+    if (req.chatHistory?.length) {
+      for (const turn of req.chatHistory) {
+        contents.push({
+          role: turn.role,
+          parts: [{ text: turn.content }],
+        })
+      }
+    }
+
+    let userText = req.userMessage
+    if (req.contextData) {
+      userText += `\n\n[FINANCIAL CONTEXT — use this data to answer, if relevant]\n${JSON.stringify(req.contextData, null, 2)}`
+    }
+
+    const userParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [{ text: userText }]
+    if (req.fileData) userParts.push({ inlineData: req.fileData })
+    contents.push({ role: 'user', parts: userParts })
+
+    const response = await withRetry((selectedModel) =>
+      ai.models.generateContent({
+        model: selectedModel,
+        contents,
+        config: {
+          systemInstruction: systemPrompt,
+          safetySettings: ACCOUNTING_SAFETY_SETTINGS,
+          // Deliberately no responseMimeType / responseSchema here.
+        },
+      })
+    )
+
+    const text = response.text ?? ''
+    return { success: true, rawText: text }
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Unknown Gemini error'
+    return { success: false, error: message }
+  }
+            }
+    
