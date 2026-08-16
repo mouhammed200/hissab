@@ -25,6 +25,11 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
   // the void button can be hidden for viewer-role members instead of only
   // failing with a 403 after they've already been prompted for a reason.
   const [canVoid, setCanVoid] = useState(true);
+  // Free-chat mode: when on, the structured engine (schema, normalize,
+  // validate, RecordCard) is frozen — untouched, not deleted — and Gemini
+  // just replies in plain text like an ordinary chatbot. Default is off, so
+  // nothing about existing behavior changes unless the user flips this.
+  const [freeMode, setFreeMode] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -69,12 +74,25 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
       const response = await fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: content, orgId, chatHistory, fileData, locale })
+        body: JSON.stringify({ message: content, orgId, chatHistory, fileData, locale, freeMode })
       });
       
       const resJson = await response.json();
       if (!response.ok || !resJson.success) {
         throw new Error(resJson.error || 'Failed to process message');
+      }
+
+      // Free mode: skip the entire structured pipeline below (normalize,
+      // validate, totals, RecordCard fields) and just show the plain reply.
+      if (freeMode) {
+        const freeMsg: ChatMessage = {
+          id: (Date.now() + 1).toString(),
+          role: 'assistant',
+          content: resJson.freeText || '',
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, freeMsg]);
+        return;
       }
 
       // The API already normalizes and validates. Re-running the normalizer here
@@ -312,6 +330,23 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Free-chat mode toggle. Off by default — flips the request flag
+              only; the structured engine underneath is untouched either way. */}
+          <button
+            type="button"
+            onClick={() => setFreeMode((prev) => !prev)}
+            title={freeMode ? t('chat.freeModeOn') : t('chat.freeModeOff')}
+            aria-pressed={freeMode}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+              freeMode
+                ? 'bg-amber-500/20 text-amber-400 border-amber-500/30 hover:bg-amber-500/30'
+                : 'bg-white/5 text-[var(--text-muted)] border-[var(--border-subtle)] hover:bg-white/10'
+            }`}
+          >
+            <span className="text-sm leading-none">{freeMode ? '🗣️' : '📋'}</span>
+            <span>{freeMode ? t('chat.freeModeOn') : t('chat.freeModeOff')}</span>
+          </button>
+
           {/* Header Locale Switcher */}
           <LocaleSwitcher />
 
