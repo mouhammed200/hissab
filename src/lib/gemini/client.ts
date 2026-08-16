@@ -204,16 +204,14 @@ export async function parseTransaction(req: GeminiRequest): Promise<GeminiRespon
   }
 }
 
-// Free-chat mode: the structured extraction engine (schema + normalize +
-// validate) is frozen, not removed — parseTransaction above is untouched and
-// can be switched back to at any time. This is a deliberately separate
-// function, not a branch inside parseTransaction, so the forced-JSON path
-// keeps working exactly as it always has for anyone not in free mode.
-//
-// No responseMimeType, no responseSchema: Gemini replies in plain prose, the
-// same way it does when explaining itself in chat — which is the one mode
-// that held up under testing. contextData is still attached for queries
-// ("what's my VAT?"), since that grounding is unrelated to the JSON forcing.
+// Free-form Gemini call with no schema/JSON forcing — kept here, frozen and
+// unused for now, not deleted. The "free mode" toggle in the app currently
+// uses the raw-JSON debug path in route.ts instead (same schema-forced
+// parseTransaction call as structured mode, just skipping normalize/
+// RecordCard), to isolate whether extraction failures originate in Gemini's
+// raw output or in the app's post-processing. This function is what "free
+// mode" should call once/if that separate question (does prose-only
+// prompting change extraction quality) needs testing again.
 export async function chatFreely(req: GeminiRequest): Promise<GeminiResponse> {
   try {
     const systemPrompt = getSystemPrompt(req.locale)
@@ -256,5 +254,5 @@ export async function chatFreely(req: GeminiRequest): Promise<GeminiResponse> {
     const message = err instanceof Error ? err.message : 'Unknown Gemini error'
     return { success: false, error: message }
   }
-            }
-    
+      }
+          
