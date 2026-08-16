@@ -13,6 +13,8 @@
     "startRecording": "Voice input",
     "uploadFile": "Upload file",
     "takePhoto": "Take photo",
+    "freeModeOn": "Free chat — structured recording is paused",
+    "freeModeOff": "Structured mode",
     "suggestions": {
       "sale": "\"Sold 5 laptops to Acme Corp for 15,000 AED\"",
       "expense": "\"Record electricity bill of 450 AED from DEWA\"",
