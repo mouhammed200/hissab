@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { parseTransaction } from '@/lib/gemini/client'
+import { parseTransaction, chatFreely } from '@/lib/gemini/client'
 import { convertForeignInvoiceToAed } from '@/lib/accounting/fx'
 import { normalizeRecord, validateRecord, computeTotals, hasItemizedTotals } from '@/lib/records/normalize'
 import { consumeSharedRateLimit, safeRequestId } from '@/lib/ops/rate-limit'
@@ -40,12 +40,13 @@ export async function POST(request: NextRequest) {
     if (typeof body.message !== 'string' || body.message.length > MAX_MESSAGE_CHARS) {
       return json({ error: 'Message is missing or too large' }, { status: 413 })
     }
-    const { message, orgId, chatHistory, fileData, locale } = body as {
+    const { message, orgId, chatHistory, fileData, locale, freeMode } = body as {
       message: string
       orgId: string
       chatHistory?: Array<{ role: 'user' | 'model'; content: string }>
       fileData?: { mimeType: string; data: string }
       locale?: 'en' | 'ar'
+      freeMode?: boolean
     }
 
     if (!message || !orgId) {
@@ -76,6 +77,35 @@ export async function POST(request: NextRequest) {
     if (fileData && (!fileData.mimeType || !fileData.data || fileData.data.length > 8_000_000)) {
       return json({ error: 'Attachment is missing or too large (max 6 MB)' }, { status: 413 })
     }
+
+    // Free-chat mode: the structured engine (steps 5-8 below — normalize,
+    // validate, FX enrichment, action-gate, ai_conversations insert of the
+    // full record) is frozen here, not touched. This branch returns before
+    // any of it runs. Nothing about the default path changes when freeMode
+    // is absent or false.
+    if (freeMode) {
+      const freeResult = await chatFreely({
+        userMessage: message,
+        contextData: { organization: orgData, userRole: membership.role },
+        chatHistory,
+        fileData,
+        locale: locale === 'ar' ? 'ar' : 'en',
+      })
+
+      if (!freeResult.success) {
+        return json({ error: freeResult.error }, { status: 500 })
+      }
+
+      const freeText = freeResult.rawText ?? ''
+
+      await supabase.from('ai_conversations').insert([
+        { org_id: orgId, user_id: user.id, role: 'user', content: message },
+        { org_id: orgId, user_id: user.id, role: 'assistant', content: freeText },
+      ])
+
+      return json({ success: true, freeMode: true, freeText })
+    }
+
     const result = await parseTransaction({
       userMessage: message,
       contextData: {
@@ -163,4 +193,5 @@ export async function POST(request: NextRequest) {
     const message = err instanceof Error ? err.message : 'Internal server error'
     return json({ error: message }, { status: 500 })
   }
-}
+  }
+      
