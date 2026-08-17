@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { parseTransaction } from '@/lib/gemini/client'
+import { parseTransaction, chatFreely } from '@/lib/gemini/client'
 import { convertForeignInvoiceToAed } from '@/lib/accounting/fx'
 import { normalizeRecord, validateRecord, computeTotals, hasItemizedTotals } from '@/lib/records/normalize'
 import { consumeSharedRateLimit, safeRequestId } from '@/lib/ops/rate-limit'
@@ -78,18 +78,14 @@ export async function POST(request: NextRequest) {
       return json({ error: 'Attachment is missing or too large (max 6 MB)' }, { status: 413 })
     }
 
-    // Free/raw-debug mode: uses the exact same schema-forced call as the
-    // structured path below (parseTransaction, same config, same prompt) —
-    // the ONLY thing this branch skips is normalizeRecord/validateRecord/
-    // RecordCard. It returns Gemini's raw JSON response as plain text. This
-    // isolates the question directly: if the amount is already missing here,
-    // it was missing before the app ever touched it. If it's present here
-    // but the structured-mode card still shows 0.00, the bug is in the app's
-    // normalize/render path, not in Gemini's output. The structured engine
-    // below (steps 5-8) is untouched either way — this branch just returns
-    // before reaching it.
+    // Free mode, this version: the full system instructions (same text
+    // Gemini always receives) are manually merged into one plain-text block
+    // with your actual message and sent as a single unstructured prompt — no
+    // systemInstruction field, no schema, no responseMimeType. See
+    // chatFreely() in client.ts for exactly what's merged. The structured
+    // engine below (steps 5-8) is untouched either way.
     if (freeMode) {
-      const rawResult = await parseTransaction({
+      const freeResult = await chatFreely({
         userMessage: message,
         contextData: { organization: orgData, userRole: membership.role },
         chatHistory,
@@ -97,12 +93,11 @@ export async function POST(request: NextRequest) {
         locale: locale === 'ar' ? 'ar' : 'en',
       })
 
-      if (!rawResult.success) {
-        return json({ error: rawResult.error }, { status: 500 })
+      if (!freeResult.success) {
+        return json({ error: freeResult.error }, { status: 500 })
       }
 
-      // Raw, unnormalized — exactly what Gemini returned, nothing touched it.
-      const freeText = JSON.stringify(rawResult.data ?? {}, null, 2)
+      const freeText = freeResult.rawText ?? ''
 
       await supabase.from('ai_conversations').insert([
         { org_id: orgId, user_id: user.id, role: 'user', content: message },
@@ -199,5 +194,4 @@ export async function POST(request: NextRequest) {
     const message = err instanceof Error ? err.message : 'Internal server error'
     return json({ error: message }, { status: 500 })
   }
-            }
-        
+        }
