@@ -204,14 +204,15 @@ export async function parseTransaction(req: GeminiRequest): Promise<GeminiRespon
   }
 }
 
-// Free-form Gemini call with no schema/JSON forcing — kept here, frozen and
-// unused for now, not deleted. The "free mode" toggle in the app currently
-// uses the raw-JSON debug path in route.ts instead (same schema-forced
-// parseTransaction call as structured mode, just skipping normalize/
-// RecordCard), to isolate whether extraction failures originate in Gemini's
-// raw output or in the app's post-processing. This function is what "free
-// mode" should call once/if that separate question (does prose-only
-// prompting change extraction quality) needs testing again.
+// Fully unstructured, manually-merged call: no schema, no responseMimeType,
+// and — the part this version actually tests — no separate systemInstruction
+// field either. Everything Gemini would normally receive as instructions
+// (getSystemPrompt output) is concatenated into ONE plain text block with the
+// user's actual message, sent as a single user turn. This is a stricter test
+// than earlier attempts, which still passed the same instructions through
+// the API's dedicated systemInstruction parameter — that's a distinct
+// channel from the main content, and Gemini may weight it differently than
+// text sitting in the conversation itself. Merging removes that variable too.
 export async function chatFreely(req: GeminiRequest): Promise<GeminiResponse> {
   try {
     const systemPrompt = getSystemPrompt(req.locale)
@@ -227,12 +228,12 @@ export async function chatFreely(req: GeminiRequest): Promise<GeminiResponse> {
       }
     }
 
-    let userText = req.userMessage
+    let mergedText = `${systemPrompt}\n\n---\n\nUser message: ${req.userMessage}`
     if (req.contextData) {
-      userText += `\n\n[FINANCIAL CONTEXT — use this data to answer, if relevant]\n${JSON.stringify(req.contextData, null, 2)}`
+      mergedText += `\n\n[FINANCIAL CONTEXT — use this data to answer, if relevant]\n${JSON.stringify(req.contextData, null, 2)}`
     }
 
-    const userParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [{ text: userText }]
+    const userParts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> = [{ text: mergedText }]
     if (req.fileData) userParts.push({ inlineData: req.fileData })
     contents.push({ role: 'user', parts: userParts })
 
@@ -241,8 +242,9 @@ export async function chatFreely(req: GeminiRequest): Promise<GeminiResponse> {
         model: selectedModel,
         contents,
         config: {
-          systemInstruction: systemPrompt,
           safetySettings: ACCOUNTING_SAFETY_SETTINGS,
+          // Deliberately no systemInstruction, no responseMimeType, no
+          // responseSchema — everything is inside the single text block above.
           // Deliberately no responseMimeType / responseSchema here.
         },
       })
@@ -254,5 +256,5 @@ export async function chatFreely(req: GeminiRequest): Promise<GeminiResponse> {
     const message = err instanceof Error ? err.message : 'Unknown Gemini error'
     return { success: false, error: message }
   }
-      }
-          
+        }
+      
