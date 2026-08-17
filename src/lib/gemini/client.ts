@@ -215,7 +215,13 @@ export async function parseTransaction(req: GeminiRequest): Promise<GeminiRespon
 // text sitting in the conversation itself. Merging removes that variable too.
 export async function chatFreely(req: GeminiRequest): Promise<GeminiResponse> {
   try {
-    const systemPrompt = getSystemPrompt(req.locale)
+    // Local copy only — getSystemPrompt() is shared with parseTransaction,
+    // so the JSON-forcing sentence is stripped here rather than at the
+    // source, to avoid changing structured mode's prompt.
+    const systemPrompt = getSystemPrompt(req.locale).replace(
+      'Given a natural-language description of a UAE business transaction, extract ONE structured JSON record.',
+      ''
+    )
 
     const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> }> = []
 
@@ -242,19 +248,30 @@ export async function chatFreely(req: GeminiRequest): Promise<GeminiResponse> {
         model: selectedModel,
         contents,
         config: {
+          // Schema forcing added back in (this variant now isolates ONLY the
+          // systemInstruction-vs-merged-into-contents channel variable, not
+          // schema forcing — that's the same as structured mode again).
+          responseMimeType: 'application/json',
+          responseSchema: RECORD_RESPONSE_SCHEMA,
           safetySettings: ACCOUNTING_SAFETY_SETTINGS,
-          // Deliberately no systemInstruction, no responseMimeType, no
-          // responseSchema — everything is inside the single text block above.
-          // Deliberately no responseMimeType / responseSchema here.
+          // Deliberately still no systemInstruction — prompt stays merged
+          // into contents above. That placement is the only variable left.
         },
       })
     )
 
     const text = response.text ?? ''
-    return { success: true, rawText: text }
+
+    try {
+      const data = JSON.parse(text)
+      return { success: true, data, rawText: text }
+    } catch {
+      return { success: false, error: 'Failed to parse JSON response', rawText: text }
+    }
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Unknown Gemini error'
     return { success: false, error: message }
   }
         }
-      
+
+               
