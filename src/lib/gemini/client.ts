@@ -218,10 +218,23 @@ export async function chatFreely(req: GeminiRequest): Promise<GeminiResponse> {
     // Local copy only — getSystemPrompt() is shared with parseTransaction,
     // so the JSON-forcing sentence is stripped here rather than at the
     // source, to avoid changing structured mode's prompt.
+    // Required-fields addendum — local to free mode only, testing whether
+    // an explicit "must extract if present" list closes the drop pattern
+    // found on structured mode (party/sale/purchase, basicSalary/employee,
+    // amount/relatedParty, amount/payment — none had this instruction).
+    const REQUIRED_FIELDS_ADDENDUM = `
+REQUIRED — extract if present in the input, never invent if absent:
+sale/purchase: party, items
+employee: name, basicSalary
+asset: assetName, purchaseCost, usefulLifeYears
+relatedParty: party, amount
+payment: party, amount, paymentType
+`
+
     const systemPrompt = getSystemPrompt(req.locale).replace(
       'Given a natural-language description of a UAE business transaction, extract ONE structured JSON record.',
       ''
-    )
+    ) + REQUIRED_FIELDS_ADDENDUM
 
     const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> }> = []
 
@@ -274,4 +287,4 @@ export async function chatFreely(req: GeminiRequest): Promise<GeminiResponse> {
   }
         }
 
-               
+                        
