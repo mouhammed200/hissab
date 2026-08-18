@@ -152,7 +152,23 @@ async function withRetry<T>(
 
 export async function parseTransaction(req: GeminiRequest): Promise<GeminiResponse> {
   try {
-    const systemPrompt = getSystemPrompt(req.locale)
+    // Schema described as prose here too, mirroring chatFreely — responseSchema
+    // removed, field list moved into systemInstruction as text instead.
+    const SCHEMA_AS_TEXT = `
+OUTPUT FIELDS AVAILABLE (use only what applies to the record's type; output valid JSON only):
+type (required, one of: sale, purchase, employee, asset, relatedParty, payment, query)
+subtype (itemized | lumpSum), party, date, currency, exchangeRate, amountInAED, vatInAED,
+emirate, reverseCharge, sellerTRN, buyerTRN, invoiceNumber,
+items: [{description, qty, price, discount, lineTotal, category, exciseCategory}],
+name, position, basicSalary, allowances, hireDate, contractType, terminationReason,
+assetName, purchaseCost, salvageValue, usefulLifeYears, supplier, purchaseDate,
+relationship, transactionType, amount, total, isArmsLength,
+paymentType, paymentMethod, bankAccountName,
+allocations: [{invoiceNumber, amount}],
+queryResponse, notes, confidence
+`
+
+    const systemPrompt = getSystemPrompt(req.locale) + SCHEMA_AS_TEXT
 
     // Build contents array with chat history
     const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> }> = []
@@ -184,7 +200,7 @@ export async function parseTransaction(req: GeminiRequest): Promise<GeminiRespon
         config: {
           systemInstruction: systemPrompt,
           responseMimeType: 'application/json',
-          responseSchema: RECORD_RESPONSE_SCHEMA,
+          // responseSchema removed — shape now described in SCHEMA_AS_TEXT above.
           safetySettings: ACCOUNTING_SAFETY_SETTINGS,
         },
       })
@@ -302,4 +318,4 @@ queryResponse, notes, confidence
   }
         }
 
-        
+            
