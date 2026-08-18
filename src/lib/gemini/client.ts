@@ -184,7 +184,9 @@ queryResponse, notes, confidence
     }
 
     // Build the user message with optional context
-    let userText = req.userMessage
+    // System prompt merged into contents here now, matching chatFreely's
+    // pattern — no separate systemInstruction field.
+    let userText = `${systemPrompt}\n\n---\n\nUser message: ${req.userMessage}`
     if (req.contextData) {
       userText += `\n\n[FINANCIAL CONTEXT — use this data to answer queries]\n${JSON.stringify(req.contextData, null, 2)}`
     }
@@ -198,9 +200,9 @@ queryResponse, notes, confidence
         model: selectedModel,
         contents,
         config: {
-          systemInstruction: systemPrompt,
           responseMimeType: 'application/json',
           // responseSchema removed — shape now described in SCHEMA_AS_TEXT above.
+          // systemInstruction removed — prompt is merged into contents above instead.
           safetySettings: ACCOUNTING_SAFETY_SETTINGS,
         },
       })
