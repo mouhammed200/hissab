@@ -231,10 +231,27 @@ relatedParty: party, amount
 payment: party, amount, paymentType
 `
 
+    // Schema described as plain text in the prompt, not enforced by the API.
+    // This isolates a third variable: whether schema-as-prose gets the same
+    // fields as schema-as-hard-constraint, without any grammar-level forcing.
+    const SCHEMA_AS_TEXT = `
+OUTPUT FIELDS AVAILABLE (use only what applies to the record's type; output valid JSON only):
+type (required, one of: sale, purchase, employee, asset, relatedParty, payment, query)
+subtype (itemized | lumpSum), party, date, currency, exchangeRate, amountInAED, vatInAED,
+emirate, reverseCharge, sellerTRN, buyerTRN, invoiceNumber,
+items: [{description, qty, price, discount, lineTotal, category, exciseCategory}],
+name, position, basicSalary, allowances, hireDate, contractType, terminationReason,
+assetName, purchaseCost, salvageValue, usefulLifeYears, supplier, purchaseDate,
+relationship, transactionType, amount, total, isArmsLength,
+paymentType, paymentMethod, bankAccountName,
+allocations: [{invoiceNumber, amount}],
+queryResponse, notes, confidence
+`
+
     const systemPrompt = getSystemPrompt(req.locale).replace(
       'Given a natural-language description of a UAE business transaction, extract ONE structured JSON record.',
       ''
-    ) + REQUIRED_FIELDS_ADDENDUM
+    ) + REQUIRED_FIELDS_ADDENDUM + SCHEMA_AS_TEXT
 
     const contents: Array<{ role: 'user' | 'model'; parts: Array<{ text?: string; inlineData?: { mimeType: string; data: string } }> }> = []
 
@@ -261,14 +278,12 @@ payment: party, amount, paymentType
         model: selectedModel,
         contents,
         config: {
-          // Schema forcing added back in (this variant now isolates ONLY the
-          // systemInstruction-vs-merged-into-contents channel variable, not
-          // schema forcing — that's the same as structured mode again).
+          // responseSchema removed — shape is now described as prose in
+          // SCHEMA_AS_TEXT above. responseMimeType kept — output is still
+          // guaranteed to be JSON, just not constrained to a specific shape.
+          // JSON parsing below stays safe (no fence/prose-stripping needed).
           responseMimeType: 'application/json',
-          responseSchema: RECORD_RESPONSE_SCHEMA,
           safetySettings: ACCOUNTING_SAFETY_SETTINGS,
-          // Deliberately still no systemInstruction — prompt stays merged
-          // into contents above. That placement is the only variable left.
         },
       })
     )
@@ -287,4 +302,4 @@ payment: party, amount, paymentType
   }
         }
 
-                        
+        
