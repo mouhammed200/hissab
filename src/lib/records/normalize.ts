@@ -555,7 +555,7 @@ export function validateRecord(record: NormalizedRecord, locale: 'en' | 'ar' = '
       if (record.paymentType !== 'received' && record.paymentType !== 'sent') {
         errors.push(ar ? 'يجب أن يكون اتجاه الدفع "مستلم" أو "مرسل".' : 'A payment record needs a direction: received or sent.')
       }
-      if (!record.bankAccountName) {
+      if (record.paymentMethod !== 'cash' && !record.bankAccountName) {
         errors.push(ar ? 'يجب اختيار حساب بنكي قبل ترحيل الدفعة.' : 'A bank account must be selected before this payment can be posted.')
       }
       const allocatedTotal = round2((record.allocations ?? []).reduce((sum, a) => sum + a.amount, 0))
