@@ -128,7 +128,7 @@ export async function POST(request: NextRequest) {
     //    line total. Replaces the old items-only arithmetic pass, which left
     //    every other record type unvalidated.
     const rawData = result.data ?? {}
-    const record = normalizeRecord(rawData)
+    const record = normalizeRecord(rawData, locale === 'ar' ? 'ar' : 'en')
 
     // Product honesty gate: chat may extract transactions and answer queries.
     // It must never advertise an action unless a real executor is wired.
@@ -195,3 +195,4 @@ export async function POST(request: NextRequest) {
     return json({ error: message }, { status: 500 })
   }
         }
+        
