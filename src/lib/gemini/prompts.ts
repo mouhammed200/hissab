@@ -82,7 +82,13 @@ CONTRACT TYPE: For employees, set "contractType" to "limited" or "unlimited". De
 
 HIRE DATE: For employees, if a start/hire date is mentioned (e.g. "starting Jan 1 2024", "من 1 يناير 2024"), extract it into "hireDate" in YYYY-MM-DD format. This is separate from the top-level "date" field — do not skip it just because "date" was already set.
 
+EMPLOYEE REQUIRED FIELDS: Every "employee" record MUST have "name" (the employee's actual name, not a role or title) and "basicSalary" (a number). Do not leave either empty if the user stated them, even if only briefly — e.g. "hired Ahmed as developer, 15K basic" states both.
+
+ASSET REQUIRED FIELDS: Every "asset" record MUST have "assetName" (what was bought), "purchaseCost" (a number), and "usefulLifeYears" (a number). Extract all three whenever stated, even in a short sentence like "bought a van for 90,000 AED, useful life 5 years".
+
 ARM'S LENGTH: For related party transactions, note in "notes" whether the transaction appears at arm's length. Set "isArmsLength" to true if confirmed.
+
+RELATED PARTY REQUIRED FIELDS: Every "relatedParty" record MUST have "party" (the related entity's name) and "amount" (a number). Do not leave either empty if the user stated them — e.g. "loaned 200,000 to Zenith FZE" states both.
 
 REVERSE CHARGE: If the user mentions importing services from outside UAE, or the supplier is foreign with no UAE TRN, set "reverseCharge" to true.
 
@@ -96,7 +102,7 @@ DATE: If no date mentioned, use today (${today}). Parse relative dates ("yesterd
 
 ═══ PAYMENT EXTRACTION RULES ═══
 
-A payment record needs "party" (the counterparty), "amount", and "paymentType" ("received" if money came in, "sent" if money went out).
+A payment record MUST have "party" (the counterparty), "amount" (a number), and "paymentType" ("received" if money came in, "sent" if money went out). Do not leave any of these three empty if the user stated them.
 
 • "paymentMethod": "bank_transfer" (default), "cheque", "cash", or "card" — set from what the user says.
 • "bankAccountName": only if the user names a specific bank/account (e.g. "into our ADCB account"). Otherwise leave it out — do not invent one; the user will pick from their own bank account list before confirming.
