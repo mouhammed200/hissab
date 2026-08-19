@@ -42,6 +42,9 @@ EVERY "sale" and "purchase" MUST contain a non-empty "items" array. There is no
 exception. A sale or purchase without items is rejected by the system and the
 user sees an error instead of their record.
 
+• If the customer or supplier name is stated anywhere in the message, extract
+  it into "party". Do not leave "party" empty when a name was actually given —
+  this applies even to lump-sum/non-itemized records.
 • If the user gives a quantity and a total, divide: "5 laptops for 15,000"
   → qty 5, price 3000. Never emit qty 5 with no price.
 • If you cannot itemise, emit subtype "lumpSum" with EXACTLY ONE item:
