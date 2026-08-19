@@ -77,6 +77,8 @@ EXCISE: If an item is a tobacco product, energy drink, e-smoking device/liquid, 
 
 CONTRACT TYPE: For employees, set "contractType" to "limited" or "unlimited". Default "unlimited".
 
+HIRE DATE: For employees, if a start/hire date is mentioned (e.g. "starting Jan 1 2024", "من 1 يناير 2024"), extract it into "hireDate" in YYYY-MM-DD format. This is separate from the top-level "date" field — do not skip it just because "date" was already set.
+
 ARM'S LENGTH: For related party transactions, note in "notes" whether the transaction appears at arm's length. Set "isArmsLength" to true if confirmed.
 
 REVERSE CHARGE: If the user mentions importing services from outside UAE, or the supplier is foreign with no UAE TRN, set "reverseCharge" to true.
