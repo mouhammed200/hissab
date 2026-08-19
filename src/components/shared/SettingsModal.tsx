@@ -17,7 +17,8 @@ const EMIRATES: Emirate[] = [
 ]
 
 export default function SettingsModal({ open, onClose }: SettingsModalProps) {
-  const { org, refreshOrg } = useOrg()
+  const { org, membership, refreshOrg } = useOrg()
+  const canEditCompany = membership?.role === 'owner' || membership?.role === 'admin'
   const { t, locale, setLocale } = useLocale()
   const supabase = createClient()
 
@@ -65,19 +66,35 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
 
     try {
       // 1. Update Organization Settings
-      const { error: orgErr } = await supabase
-        .from('organizations')
-        .update({
-          name,
-          legal_name: legalName || null,
-          trn: trn || null,
-          default_emirate: emirate,
-          is_free_zone: isFreeZone,
-          updated_at: new Date().toISOString(),
-        })
-        .eq('id', org.id)
+      // Only owner/admin can write to `organizations` per RLS policy org_upd.
+      // Supabase RLS silently matches zero rows on a denied UPDATE rather than
+      // throwing, so a bare .update() looks identical to success even when
+      // nothing changed. Guard on the client (canEditCompany disables the
+      // fields below) AND verify server-side by selecting the updated row
+      // back — if RLS blocked it, .select() returns an empty array here,
+      // which we treat as a real failure instead of silently succeeding.
+      if (canEditCompany) {
+        const { data: updatedRows, error: orgErr } = await supabase
+          .from('organizations')
+          .update({
+            name,
+            legal_name: legalName || null,
+            trn: trn || null,
+            default_emirate: emirate,
+            is_free_zone: isFreeZone,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', org.id)
+          .select('id')
 
-      if (orgErr) throw orgErr
+        if (orgErr) throw orgErr
+        if (!updatedRows || updatedRows.length === 0) {
+          throw new Error(
+            t('settings.permissionDenied') ||
+            'You do not have permission to update company settings. Ask an owner or admin.'
+          )
+        }
+      }
 
       // 2. Update User Profile Metadata
       if (fullName) {
@@ -132,19 +149,24 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
           {/* Company Details Section */}
           <div className="bg-white/5 p-4 rounded-xl space-y-3 border border-white/5">
             <h3 className="text-xs font-semibold uppercase tracking-wider text-emerald-400">{t('settings.companyAndTax')}</h3>
+            {!canEditCompany && (
+              <p className="text-xs text-amber-400/90 bg-amber-500/10 border border-amber-500/20 rounded-lg px-3 py-2">
+                {t('settings.companyEditRestricted') || 'Only an owner or admin can change company and tax settings.'}
+              </p>
+            )}
             <div>
               <label className="block text-xs text-[--text-muted] mb-1">{t('settings.companyName')}</label>
-              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.companyNamePlaceholder')} className="text-xs w-full" />
+              <input type="text" value={name} onChange={e => setName(e.target.value)} placeholder={t('settings.companyNamePlaceholder')} disabled={!canEditCompany} className={`text-xs w-full ${!canEditCompany ? 'opacity-60 cursor-not-allowed' : ''}`} />
             </div>
 
             <div>
               <label className="block text-xs text-[--text-muted] mb-1">{t('settings.legalName')}</label>
-              <input type="text" value={legalName} onChange={e => setLegalName(e.target.value)} placeholder={t('settings.legalNamePlaceholder')} className="text-xs w-full" />
+              <input type="text" value={legalName} onChange={e => setLegalName(e.target.value)} placeholder={t('settings.legalNamePlaceholder')} disabled={!canEditCompany} className={`text-xs w-full ${!canEditCompany ? 'opacity-60 cursor-not-allowed' : ''}`} />
             </div>
 
             <div>
               <label className="block text-xs text-[--text-muted] mb-1">{t('settings.trn')}</label>
-              <input type="text" value={trn} onChange={e => setTrn(e.target.value)} placeholder={t('settings.trnPlaceholder')} maxLength={15} className="text-xs font-mono w-full" />
+              <input type="text" value={trn} onChange={e => setTrn(e.target.value)} placeholder={t('settings.trnPlaceholder')} maxLength={15} disabled={!canEditCompany} className={`text-xs font-mono w-full ${!canEditCompany ? 'opacity-60 cursor-not-allowed' : ''}`} />
             </div>
 
             <div>
@@ -152,7 +174,8 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               <select
                 value={emirate}
                 onChange={e => setEmirate(e.target.value as Emirate)}
-                className="w-full bg-[var(--bg-secondary)] border border-white/10 text-[--text-primary] rounded-xl px-3 py-2 text-xs outline-none focus:border-[--accent] transition-colors"
+                disabled={!canEditCompany}
+                className={`w-full bg-[var(--bg-secondary)] border border-white/10 text-[--text-primary] rounded-xl px-3 py-2 text-xs outline-none focus:border-[--accent] transition-colors ${!canEditCompany ? 'opacity-60 cursor-not-allowed' : ''}`}
               >
                 {EMIRATES.map(e => (
                   <option key={e} value={e} className="bg-[--bg-secondary]">
@@ -162,7 +185,7 @@ export default function SettingsModal({ open, onClose }: SettingsModalProps) {
               </select>
             </div>
 
-            <button type="button" onClick={() => setIsFreeZone(value => !value)} className="flex items-center gap-3 cursor-pointer group pt-1 text-start">
+            <button type="button" onClick={() => canEditCompany && setIsFreeZone(value => !value)} disabled={!canEditCompany} className={`flex items-center gap-3 group pt-1 text-start ${!canEditCompany ? 'opacity-60 cursor-not-allowed' : 'cursor-pointer'}`}>
               <span 
                 className={`w-9 h-5 rounded-full transition-colors relative ${isFreeZone ? 'bg-emerald-600' : 'bg-white/10'}`}
                 role="switch" aria-checked={isFreeZone} aria-label={t('settings.freeZone')}
