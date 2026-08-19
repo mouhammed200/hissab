@@ -51,6 +51,11 @@
     "allowances": "البدلات",
     "totalPackage": "إجمالي الراتب",
     "hireDate": "تاريخ التعيين",
+    "contractType": "نوع العقد",
+    "contractTypes": {
+      "limited": "محدد المدة",
+      "unlimited": "غير محدد المدة"
+    },
     "assetName": "الاسم",
     "supplier": "المورد",
     "cost": "التكلفة",
