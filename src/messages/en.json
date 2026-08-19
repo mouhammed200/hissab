@@ -183,6 +183,8 @@
     "cancel": "Cancel",
     "signOut": "Sign Out",
     "error": "Error",
+    "permissionDenied": "You do not have permission to update company settings. Ask an owner or admin.",
+    "companyEditRestricted": "Only an owner or admin can change company and tax settings.",
     "emirates": {
       "Abu Dhabi": "Abu Dhabi",
       "Dubai": "Dubai",
