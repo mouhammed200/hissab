@@ -238,7 +238,8 @@ function flatten(
   return merged
 }
 
-export function normalizeRecord(input: unknown): NormalizedRecord {
+export function normalizeRecord(input: unknown, locale: 'en' | 'ar' = 'en'): NormalizedRecord {
+  const ar = locale === 'ar'
   const warnings: string[] = []
   let raw = (input ?? {}) as Record<string, unknown>
 
@@ -326,7 +327,11 @@ export function normalizeRecord(input: unknown): NormalizedRecord {
   // "Date of supply is required for exchange-rate facts."
   if (!record.date) {
     record.date = new Date().toISOString().split('T')[0]
-    warnings.push(`No date was detected; defaulted to ${record.date}. Review before confirming.`)
+    warnings.push(
+      ar
+        ? `لم يتم تحديد تاريخ للمعاملة؛ تم استخدام ${record.date} كتاريخ افتراضي. يرجى المراجعة قبل التأكيد.`
+        : `No date was detected; defaulted to ${record.date}. Review before confirming.`
+    )
   }
 
   if (type === 'sale' || type === 'purchase') {
@@ -533,60 +538,4 @@ export function validateRecord(record: NormalizedRecord, locale: 'en' | 'ar' = '
     case 'relatedParty': {
       if (!record.party) errors.push(ar ? 'يحتاج سجل الطرف ذي الصلة إلى اسم الطرف المقابل.' : 'A related-party record needs the counterparty name.')
       if (!record.amount || record.amount <= 0) {
-        errors.push(ar ? 'يحتاج سجل الطرف ذي الصلة إلى مبلغ أكبر من 0.' : 'A related-party record needs an amount greater than 0.')
-      }
-      if (record.isArmsLength === undefined) {
-        warnings.push(ar ? 'لم يُذكر وضع الشروط التجارية العادلة؛ سيتم الافتراض بأنه نعم. يرجى التأكيد قبل التقديم.' : "Arm's-length status was not stated; defaulting to yes. Confirm before filing.")
-      }
-      break
-    }
-    case 'payment': {
-      if (!record.party) {
-        errors.push(ar ? 'يحتاج سجل الدفع إلى اسم الطرف المقابل.' : 'A payment record needs the counterparty name.')
-      }
-      if (!record.amount || record.amount <= 0) {
-        errors.push(ar ? 'يحتاج سجل الدفع إلى مبلغ أكبر من 0.' : 'A payment record needs an amount greater than 0.')
-      }
-      if (record.paymentType !== 'received' && record.paymentType !== 'sent') {
-        errors.push(ar ? 'يجب أن يكون اتجاه الدفع "مستلم" أو "مرسل".' : 'A payment record needs a direction: received or sent.')
-      }
-      if (!record.bankAccountName) {
-        errors.push(ar ? 'يجب اختيار حساب بنكي قبل ترحيل الدفعة.' : 'A bank account must be selected before this payment can be posted.')
-      }
-      const allocatedTotal = round2((record.allocations ?? []).reduce((sum, a) => sum + a.amount, 0))
-      if (record.amount !== undefined && allocatedTotal > record.amount + 0.01) {
-        errors.push(
-          ar
-            ? `مجموع التخصيصات ${allocatedTotal} يتجاوز مبلغ الدفع ${record.amount}.`
-            : `Allocations total ${allocatedTotal} which exceeds the payment amount of ${record.amount}.`,
-        )
-      }
-      break
-    }
-    case 'query': {
-      if (!record.queryResponse) warnings.push(ar ? 'أعاد المساعد استعلاماً بدون نص إجابة.' : 'The assistant returned a query with no answer text.')
-      break
-    }
-    case 'action': {
-      if (!record.actionType) errors.push(ar ? 'يحتاج سجل الإجراء إلى actionType.' : 'An action record needs an actionType.')
-      break
-    }
-    default:
-      errors.push(ar ? `نوع سجل غير مدعوم "${record.type}".` : `Unsupported record type "${record.type}".`)
-  }
-
-  return { valid: errors.length === 0, errors, warnings }
-}
-
-export function isTransaction(type: string | undefined): boolean {
-  return !!type && (TRANSACTION_TYPES as string[]).includes(type)
-}
-
-// computeTotals() only sums record.items. sale/purchase are the only types
-// that carry items — asset (purchaseCost), employee (basicSalary+allowances),
-// and relatedParty (amount) all have zero items, so computeTotals silently
-// returned {total: 0} for them and RecordCard rendered "Total: 0.00 AED".
-// Gate totals to the types that actually have line items.
-export function hasItemizedTotals(type: string | undefined): boolean {
-  return type === 'sale' || type === 'purchase'
-}
+        errors.push(ar ? 'يحتاج سجل 
