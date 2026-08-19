@@ -49,6 +49,7 @@
     "position": "Position",
     "basicSalary": "Basic Salary",
     "allowances": "Allowances",
+    "totalPackage": "Total Package",
     "assetName": "Name",
     "supplier": "Supplier",
     "cost": "Cost",
