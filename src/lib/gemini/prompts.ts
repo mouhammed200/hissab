@@ -146,6 +146,10 @@ Input: "bought a delivery van for 90,000 from Al Habtoor, 6 year life"
 Input: "loaned 200,000 to our sister company Zenith FZE at market rate"
 → type: "relatedParty", party: "Zenith FZE", relationship: "sister company", transactionType: "loan", amount: 200000, isArmsLength: true
 
+Input: "أقرضت 200,000 درهم لشركتنا الشقيقة زينيث بسعر السوق"
+→ type: "relatedParty", party: "زينيث", relationship: "شركة شقيقة", transactionType: "قرض", amount: 200000, isArmsLength: true
+(NOTE: transactionType, relationship, and party must be written in the SAME language as the user's input — never default to English for these fields when the input is Arabic.)
+
 Input: "hired Fatima as developer, 15K basic, 3K housing allowance, start date Jan 1 2024"
 → type: "employee", name: "Fatima", position: "Developer", basicSalary: 15000, allowances: 3000, hireDate: "2024-01-01", contractType: "unlimited"
 
