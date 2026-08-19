@@ -22,7 +22,7 @@ function Accordion({ title, onOpen, children, loading }: { title: string; onOpen
   }
 
   return (
-    <div className="glass rounded-xl overflow-hidden mb-3">
+    <div className="glass rounded-xl overflow-hidden mb-3 min-w-0 w-full">
       <button
         onClick={toggle}
         className="w-full flex items-center justify-between p-4 hover:bg-white/5 transition text-left"
@@ -33,7 +33,7 @@ function Accordion({ title, onOpen, children, loading }: { title: string; onOpen
         </svg>
       </button>
       {open && (
-        <div className="p-4 border-t border-white/5 text-sm">
+        <div className="p-4 border-t border-white/5 text-sm min-w-0">
           {loading ? (
             <div className="flex items-center gap-2 text-[var(--text-muted)] py-4 justify-center">
               <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
@@ -193,7 +193,7 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
   }
 
   return (
-    <div className="flex flex-col h-full space-y-2">
+    <div className="flex flex-col h-full space-y-2 min-w-0">
       {/* Export all button */}
       <button
         onClick={handleExcelExport}
