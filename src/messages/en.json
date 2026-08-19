@@ -51,6 +51,11 @@
     "allowances": "Allowances",
     "totalPackage": "Total Package",
     "hireDate": "Hire Date",
+    "contractType": "Contract Type",
+    "contractTypes": {
+      "limited": "Fixed-term",
+      "unlimited": "Unlimited"
+    },
     "assetName": "Name",
     "supplier": "Supplier",
     "cost": "Cost",
