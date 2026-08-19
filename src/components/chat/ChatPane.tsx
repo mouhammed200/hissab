@@ -98,7 +98,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
       // The API already normalizes and validates. Re-running the normalizer here
       // is cheap and keeps the UI correct even if the response is replayed from
       // history or an older client version is talking to a newer API.
-      const parsedRecord: ParsedRecord | undefined = resJson.data ? normalizeRecord(resJson.data) : undefined;
+      const parsedRecord: ParsedRecord | undefined = resJson.data ? normalizeRecord(resJson.data, locale) : undefined;
       const transaction = Boolean(parsedRecord && isTransaction(parsedRecord.type));
 
       const validation = resJson.validation ?? (parsedRecord ? validateRecord(parsedRecord, locale) : undefined);
@@ -279,7 +279,7 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
       if (msg.id === messageId) {
         // Re-run the full normalizer on edits so a manually edited record is
         // held to exactly the same contract as a freshly parsed one.
-        const normalized = normalizeRecord(updatedRecord);
+        const normalized = normalizeRecord(updatedRecord, locale);
         const revalidated = validateRecord(normalized, locale);
         return {
           ...msg,
@@ -388,4 +388,5 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
       />
     </div>
   );
-}
+             }
+        
