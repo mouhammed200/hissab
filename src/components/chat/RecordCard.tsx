@@ -361,7 +361,7 @@ export default function RecordCard({
                     <option value="card">{t('record.paymentMethods.card')}</option>
                   </select>
                 ) : (
-                  <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.paymentMethod || 'bank_transfer'}</span>
+                  <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{t(`record.paymentMethods.${record.paymentMethod || 'bank_transfer'}`)}</span>
                 )}
               </div>
               <div>
