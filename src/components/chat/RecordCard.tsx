@@ -306,6 +306,12 @@ export default function RecordCard({
               <span className="text-[var(--text-muted)] block">{t('record.allowances')}</span>
               <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{formatCurrency(record.allowances ?? 0, record.currency)}</span>
             </div>
+            {record.hireDate && (
+              <div>
+                <span className="text-[var(--text-muted)] block">{t('record.hireDate')}</span>
+                <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.hireDate}</span>
+              </div>
+            )}
           </div>
         )}
 
