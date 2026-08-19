@@ -380,8 +380,9 @@ export default function RecordCard({
             </div>
 
             {/* Bank account is a controlled org-level list, never free text
-                the model should guess — this dropdown is the source of truth. */}
-            {!isVoided && status !== 'confirmed' ? (
+                the model should guess — this dropdown is the source of truth.
+                Cash payments don't touch a bank account, so skip it entirely. */}
+            {record.paymentMethod !== 'cash' && !isVoided && status !== 'confirmed' ? (
               <div>
                 <span className="text-[var(--text-muted)] block text-sm mb-1">{t('record.bankAccount')}</span>
                 <select
@@ -395,12 +396,12 @@ export default function RecordCard({
                   ))}
                 </select>
               </div>
-            ) : (
+            ) : record.paymentMethod !== 'cash' ? (
               <div className="text-sm">
                 <span className="text-[var(--text-muted)] block">{t('record.bankAccount')}</span>
                 <span className="text-[var(--text-primary)]">{record.bankAccountName || '—'}</span>
               </div>
-            )}
+            ) : null}
 
             {showAllocations && (
               <div className="w-full overflow-x-auto">
