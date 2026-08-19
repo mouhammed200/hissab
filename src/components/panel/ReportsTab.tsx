@@ -193,7 +193,7 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
   }
 
   return (
-    <div className="flex flex-col h-full space-y-2 min-w-0">
+    <div className="flex flex-col space-y-2 min-w-0">
       {/* Export all button */}
       <button
         onClick={handleExcelExport}
@@ -285,5 +285,6 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
     </div>
   )
 }
+
 
           
