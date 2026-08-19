@@ -70,7 +70,7 @@ export default function AuditTab({ orgId, refreshTrigger }: AuditTabProps) {
   }
 
   return (
-    <div className="flex flex-col h-full space-y-3">
+    <div className="flex flex-col space-y-3">
       {logs.map((log) => (
         <div key={log.id} className="glass rounded-lg p-3 sm:p-4">
           <div className="flex items-center justify-between mb-2 gap-2">
