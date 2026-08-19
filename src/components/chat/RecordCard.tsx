@@ -312,6 +312,12 @@ export default function RecordCard({
                 <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>{record.hireDate}</span>
               </div>
             )}
+            <div>
+              <span className="text-[var(--text-muted)] block">{t('record.contractType')}</span>
+              <span className={`text-[var(--text-primary)] ${isVoided ? 'line-through' : ''}`}>
+                {t(record.contractType === 'limited' ? 'record.contractTypes.limited' : 'record.contractTypes.unlimited')}
+              </span>
+            </div>
           </div>
         )}
 
