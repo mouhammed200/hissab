@@ -170,7 +170,7 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
   })
 
   return (
-    <div className="flex flex-col h-full space-y-4">
+    <div className="flex flex-col space-y-4">
       {/* Filter Bar */}
       <div className="flex flex-wrap sm:flex-nowrap gap-2 sm:gap-3">
         <select 
@@ -246,4 +246,4 @@ export default function RecordsTab({ orgId, refreshTrigger }: RecordsTabProps) {
     </div>
   )
                }
-          
+
