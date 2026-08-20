@@ -9,12 +9,16 @@ BEGIN;
 -- frontend when name_ar is null (accounts entered without an Arabic
 -- name stay as originally entered, not auto-translated).
 
+DROP FUNCTION IF EXISTS fn_balance_sheet(UUID, DATE);
+
 CREATE OR REPLACE FUNCTION fn_balance_sheet(p_org_id UUID, p_as_of DATE)
 RETURNS TABLE (bs_type account_type, category account_category, account_code VARCHAR, account_name VARCHAR, account_name_ar VARCHAR, balance NUMERIC(15,2)) AS $$ BEGIN RETURN QUERY
 SELECT a.type,a.category,a.code,a.name,a.name_ar,(CASE WHEN a.type='asset' THEN COALESCE(SUM(jl.debit-jl.credit),0) ELSE COALESCE(SUM(jl.credit-jl.debit),0) END)::NUMERIC(15,2)
 FROM accounts a LEFT JOIN journal_lines jl ON jl.account_id=a.id LEFT JOIN journal_entries je ON jl.journal_entry_id=je.id AND je.org_id=p_org_id AND je.status IN ('posted','void') AND je.date<=p_as_of
 WHERE a.org_id=p_org_id AND a.type IN ('asset','liability','equity') AND je.id IS NOT NULL GROUP BY a.id,a.type,a.category,a.code,a.name,a.name_ar HAVING COALESCE(SUM(jl.debit),0)!=0 OR COALESCE(SUM(jl.credit),0)!=0 ORDER BY a.type,a.code;
 END; $$ LANGUAGE plpgsql STABLE;
+
+DROP FUNCTION IF EXISTS fn_profit_and_loss(UUID, DATE, DATE);
 
 CREATE OR REPLACE FUNCTION fn_profit_and_loss(p_org_id UUID, p_start DATE, p_end DATE)
 RETURNS TABLE (category account_category, account_code VARCHAR, account_name VARCHAR, account_name_ar VARCHAR, amount NUMERIC(15,2))
