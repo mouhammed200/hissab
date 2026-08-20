@@ -160,6 +160,30 @@
     "paymentDirection": "Direction",
     "paymentMethodCol": "Method",
     "paymentAmount": "Amount",
+    "exportFailed": "Export failed",
+    "enums": {
+      "accountType": {
+        "asset": "Asset",
+        "liability": "Liability",
+        "equity": "Equity",
+        "revenue": "Revenue",
+        "expense": "Expense"
+      },
+      "accountCategory": {
+        "current_asset": "Current Asset",
+        "fixed_asset": "Fixed Asset",
+        "non_current_asset": "Non-Current Asset",
+        "current_liability": "Current Liability",
+        "non_current_liability": "Non-Current Liability",
+        "equity": "Equity",
+        "operating_revenue": "Operating Revenue",
+        "non_operating_revenue": "Non-Operating Revenue",
+        "cost_of_goods_sold": "Cost of Goods Sold",
+        "operating_expense": "Operating Expense",
+        "tax_expense": "Tax Expense",
+        "other_expense": "Other Expense"
+      }
+    },
     "columns": {
       "account_code": "Code",
       "account_name": "Account Name",
