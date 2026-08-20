@@ -47,7 +47,7 @@ function Accordion({ title, onOpen, children, loading }: { title: string; onOpen
 }
 
 export default function ReportsTab({ orgId }: ReportsTabProps) {
-  const { t } = useLocale()
+  const { t, locale } = useLocale()
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [reportData, setReportData] = useState<Record<ReportType, any[]>>({
     trial_balance: [],
@@ -145,9 +145,32 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderTable = (rows: any[]) => {
     const safeRows = Array.isArray(rows) ? rows : rows ? [rows] : []
-    if (!safeRows.length) return <p className="text-[var(--text-muted)] italic text-center py-4">No data for this period.</p>
-    const keys = Object.keys(safeRows[0] ?? {})
-    if (!keys.length) return <p className="text-[var(--text-muted)] italic text-center py-4">No data for this period.</p>
+    if (!safeRows.length) return <p className="text-[var(--text-muted)] italic text-center py-4">{t('reports.noData')}</p>
+    const rawKeys = Object.keys(safeRows[0] ?? {})
+    if (!rawKeys.length) return <p className="text-[var(--text-muted)] italic text-center py-4">{t('reports.noData')}</p>
+
+    // account_name_ar / contact_name_ar ride alongside their base column
+    // (account_name / contact_name) rather than as their own column: in
+    // Arabic locale we swap the base column's displayed value, we never
+    // show the raw *_ar key as a separate header. Internal ids (account_id,
+    // contact_id) are never shown either — they're joins, not report data.
+    const arKeys = new Set(rawKeys.filter(k => k.endsWith('_ar')))
+    const keys = rawKeys.filter(k => !k.endsWith('_id') && !arKeys.has(k))
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const displayValue = (row: any, k: string) => {
+      const arKey = `${k}_ar`
+      if (locale === 'ar' && arKeys.has(arKey) && row[arKey]) return row[arKey]
+      const v = row[k]
+      return typeof v === 'number' ? fmt(v) : (v ?? '-')
+    }
+
+    const headerLabel = (k: string) => {
+      const fullKey = `reports.columns.${k}`
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const label = t(fullKey as any)
+      return label === fullKey ? k.replace(/_/g, ' ') : label
+    }
 
     // Single-record reports (VAT 201, summaries) read far better vertically
     // than as one very wide row.
@@ -157,9 +180,9 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
         <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2">
           {keys.map(k => (
             <div key={k} className="flex items-baseline justify-between gap-3 border-b border-[var(--border-subtle)] py-1.5 last:border-0">
-              <dt className="text-[var(--text-muted)] capitalize">{k.replace(/_/g, ' ')}</dt>
+              <dt className="text-[var(--text-muted)] capitalize">{headerLabel(k)}</dt>
               <dd className="text-[var(--text-secondary)] font-medium tabular-nums">
-                {typeof row[k] === 'number' ? fmt(row[k]) : (row[k] ?? '-')}
+                {displayValue(row, k)}
               </dd>
             </div>
           ))}
@@ -173,7 +196,7 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
         <table className="w-full text-left border-collapse text-xs">
           <thead>
             <tr className="text-[var(--text-muted)] border-b border-[var(--border-subtle)]">
-              {keys.map(k => <th key={k} className="pb-2 pr-4 font-medium capitalize">{k.replace(/_/g, ' ')}</th>)}
+              {keys.map(k => <th key={k} className="pb-2 pr-4 font-medium capitalize">{headerLabel(k)}</th>)}
             </tr>
           </thead>
           <tbody>
@@ -181,7 +204,7 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
               <tr key={i} className="border-b border-[var(--border-subtle)] last:border-0 hover:bg-white/5">
                 {keys.map(k => (
                   <td key={k} className="py-2 pr-4 text-[var(--text-secondary)]">
-                    {typeof row[k] === 'number' ? fmt(row[k]) : (row[k] ?? '-')}
+                    {displayValue(row, k)}
                   </td>
                 ))}
               </tr>
