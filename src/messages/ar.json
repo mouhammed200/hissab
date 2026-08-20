@@ -160,6 +160,30 @@
     "paymentDirection": "الاتجاه",
     "paymentMethodCol": "طريقة الدفع",
     "paymentAmount": "المبلغ",
+    "exportFailed": "فشل التصدير",
+    "enums": {
+      "accountType": {
+        "asset": "أصل",
+        "liability": "التزام",
+        "equity": "حقوق الملكية",
+        "revenue": "إيراد",
+        "expense": "مصروف"
+      },
+      "accountCategory": {
+        "current_asset": "أصل متداول",
+        "fixed_asset": "أصل ثابت",
+        "non_current_asset": "أصل غير متداول",
+        "current_liability": "التزام متداول",
+        "non_current_liability": "التزام غير متداول",
+        "equity": "حقوق الملكية",
+        "operating_revenue": "إيراد تشغيلي",
+        "non_operating_revenue": "إيراد غير تشغيلي",
+        "cost_of_goods_sold": "تكلفة البضاعة المباعة",
+        "operating_expense": "مصروف تشغيلي",
+        "tax_expense": "مصروف ضريبي",
+        "other_expense": "مصروف آخر"
+      }
+    },
     "columns": {
       "account_code": "الرمز",
       "account_name": "اسم الحساب",
