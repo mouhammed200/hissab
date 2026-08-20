@@ -13,6 +13,7 @@ type ReportType = 'trial_balance' | 'profit_loss' | 'balance_sheet' | 'aged_rece
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function Accordion({ title, onOpen, children, loading }: { title: string; onOpen: () => void; children: React.ReactNode; loading?: boolean }) {
+  const { t } = useLocale()
   const [open, setOpen] = useState(false)
 
   const toggle = () => {
@@ -37,7 +38,7 @@ function Accordion({ title, onOpen, children, loading }: { title: string; onOpen
           {loading ? (
             <div className="flex items-center gap-2 text-[var(--text-muted)] py-4 justify-center">
               <div className="w-4 h-4 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-              Loading...
+              {t('reports.loading')}
             </div>
           ) : children}
         </div>
@@ -124,16 +125,16 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
     const res = await fetch('/api/bank/import', { method: 'POST', body: formData })
     if (res.ok) {
       const json = await res.json()
-      alert(`Bank import complete: ${json.imported ?? 0} transactions imported.`)
+      alert(t('reports.importSuccess', { count: json.imported ?? 0 }))
     } else {
-      alert('Bank import failed')
+      alert(t('reports.importFailed'))
     }
   }
 
   const handleExcelExport = async () => {
     const url = `/api/export/excel?orgId=${orgId}`
     const res = await fetch(url)
-    if (!res.ok) { alert('Export failed'); return }
+    if (!res.ok) { alert(t('reports.exportFailed')); return }
     const blob = await res.blob()
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
@@ -157,12 +158,30 @@ export default function ReportsTab({ orgId }: ReportsTabProps) {
     const arKeys = new Set(rawKeys.filter(k => k.endsWith('_ar')))
     const keys = rawKeys.filter(k => !k.endsWith('_id') && !arKeys.has(k))
 
+    // account_type shows up as "account_type" (trial balance) or "bs_type"
+    // (balance sheet); account_category always shows up as "category".
+    // Both are fixed Postgres enums (see 001_foundation), not free text,
+    // so — unlike account_name — their values translate the same way
+    // headers do, via a lookup table rather than user data.
+    const ENUM_COLUMNS: Record<string, string> = {
+      bs_type: 'accountType',
+      account_type: 'accountType',
+      category: 'accountCategory',
+    }
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const displayValue = (row: any, k: string) => {
       const arKey = `${k}_ar`
       if (locale === 'ar' && arKeys.has(arKey) && row[arKey]) return row[arKey]
       const v = row[k]
-      return typeof v === 'number' ? fmt(v) : (v ?? '-')
+      if (typeof v === 'number') return fmt(v)
+      if (v && ENUM_COLUMNS[k]) {
+        const enumKey = `reports.enums.${ENUM_COLUMNS[k]}.${v}`
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const label = t(enumKey as any)
+        return label === enumKey ? v : label
+      }
+      return v ?? '-'
     }
 
     const headerLabel = (k: string) => {
