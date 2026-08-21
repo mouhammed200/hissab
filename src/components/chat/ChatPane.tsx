@@ -322,12 +322,19 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
       const result = String(reader.result || '')
       const comma = result.indexOf(',')
       const data = comma >= 0 ? result.slice(comma + 1) : result
-      handleSend(`Please read and extract the accounting information from ${file.name}.`, {
+      const uploadPrompt = locale === 'ar'
+        ? `يرجى قراءة واستخراج المعلومات المحاسبية من ${file.name}.`
+        : `Please read and extract the accounting information from ${file.name}.`
+      handleSend(uploadPrompt, {
         mimeType: file.type || 'application/octet-stream',
         data,
       })
     }
-    reader.onerror = () => handleSend(`I could not read ${file.name}. Please try again.`)
+    reader.onerror = () => handleSend(
+      locale === 'ar'
+        ? `تعذّرت قراءة ${file.name}. يرجى المحاولة مجددًا.`
+        : `I could not read ${file.name}. Please try again.`
+    )
     reader.readAsDataURL(file)
   };
 
