@@ -302,7 +302,19 @@ export default function ChatPane({ orgId, userId, onRecordConfirmed, onTogglePan
 
   const handleFileUpload = (file: File) => {
     if (file.size > 6 * 1024 * 1024) {
-      handleSend(`Attachment ${file.name} is too large. Please upload a file under 6 MB.`)
+      // Was: handleSend(`Attachment ${file.name} is too large...`) — that faked a
+      // user chat message and routed it through /api/gemini, burning a real LLM
+      // call just to get a reworded rejection back. This is now a local-only
+      // message, no network call, matching the error-message pattern below.
+      const sizeErrorMsg: ChatMessage = {
+        id: Date.now().toString(),
+        role: 'assistant',
+        content: locale === 'ar'
+          ? `الملف ${file.name} كبير جدًا. يرجى رفع ملف أصغر من 6 ميجابايت.`
+          : `${file.name} is too large. Please upload a file under 6 MB.`,
+        timestamp: new Date()
+      };
+      setMessages(prev => [...prev, sizeErrorMsg]);
       return
     }
     const reader = new FileReader()
